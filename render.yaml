@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: umnorder
+    env: docker
+    plan: starter      # Required for Disks. Change to 'free' only if you don't care about saving data.
+    region: ohio       # Choose a region close to you
+    disk:
+      name: umn-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: HEADLESS
+        value: true
+      - key: DATABASE_URL
+        value: sqlite:////data/umnorder.db  # Tells the app to save data to the persistent disk

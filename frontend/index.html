@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UMN Order | Automated Dining</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="background-glow"></div>
+    
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <i class="ph-fill ph-hamburger"></i>
+                <div class="logo-text">
+                    <h1>UMN Order</h1>
+                </div>
+            </div>
+            <p class="subtitle">Automated ordering for the dining halls.</p>
+        </header>
+
+        <div class="glass-panel nav-panel">
+            <div class="tabs">
+                <button class="tab-button active" onclick="showTab('presets', this)">
+                    <i class="ph-bold ph-list-dashes"></i> My Presets
+                </button>
+                <button class="tab-button" onclick="showTab('create', this)">
+                    <i class="ph-bold ph-plus-circle"></i> New Preset
+                </button>
+                <button class="tab-button" onclick="showTab('users', this)">
+                    <i class="ph-bold ph-users"></i> Users
+                </button>
+            </div>
+        </div>
+
+        <div id="presets-tab" class="tab-content active">
+            <div id="presets-list" class="presets-grid">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Syncing presets...</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="create-tab" class="tab-content">
+            <div class="form-container glass-panel">
+                <div class="panel-header">
+                    <h2>Design New Preset</h2>
+                    <p>Configure your order</p>
+                </div>
+                <form id="create-preset-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="user-select">Select User</label>
+                            <div class="select-wrapper">
+                                <select id="user-select" required>
+                                    <option value="">Choose a user profile...</option>
+                                </select>
+                                <i class="ph-bold ph-caret-down"></i>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="preset-name">Preset Name</label>
+                            <input type="text" id="preset-name" placeholder="e.g. Comstock Pasta" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="location-select">Dining Location</label>
+                        <div class="select-wrapper">
+                            <select id="location-select">
+                                <option value="">Default (First Available)</option>
+                                <option value="17th Ave Dining Hall Grill">17th Ave Dining Hall Grill</option>
+                                <option value="Pioneer Dining Hall Grill">Pioneer Dining Hall Grill</option>
+                                <option value="Bailey Dining Hall Quesadilla">Bailey Dining Hall Quesadilla</option>
+                                <option value="Bailey Dining Hall Grill">Bailey Dining Hall Grill</option>
+                                <option value="Bailey Dining Hall Pizza">Bailey Dining Hall Pizza</option>
+                                <option value="Comstock Dining Hall Pizza">Comstock Dining Hall Pizza</option>
+                                <option value="Comstock Dining Hall Pasta">Comstock Dining Hall Pasta</option>
+                                <option value="Middlebrook Dining Hall Grill">Middlebrook Dining Hall Grill</option>
+                            </select>
+                            <i class="ph-bold ph-caret-down"></i>
+                        </div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label>Order Items</label>
+                            <span class="info-text">Exact menu matches required</span>
+                        </div>
+                        <div id="items-container">
+                            </div>
+                        <button type="button" class="btn btn-secondary dashed-btn" onclick="addItemRow()">
+                            <i class="ph-bold ph-plus"></i> Add Another Item
+                        </button>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph-bold ph-check"></i> Save Configuration
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="users-tab" class="tab-content">
+            <div class="split-view">
+                <div class="form-container glass-panel">
+                    <div class="panel-header">
+                        <h2>Register User</h2>
+                        <p>Add contact details for automation.</p>
+                    </div>
+                    <form id="create-user-form">
+                        <div class="form-group">
+                            <label for="user-name">Full Name</label>
+                            <div class="input-icon">
+                                <i class="ph-bold ph-user"></i>
+                                <input type="text" id="user-name" placeholder="Jane Doe" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="user-phone">Phone Number</label>
+                            <div class="input-icon">
+                                <i class="ph-bold ph-phone"></i>
+                                <input type="tel" id="user-phone" placeholder="6125550100" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph-bold ph-user-plus"></i> Add Profile
+                        </button>
+                    </form>
+                </div>
+                
+                <div class="user-list-container glass-panel">
+                    <h3>Active Profiles</h3>
+                    <div id="users-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="status-modal" class="modal">
+            <div class="modal-content glass-panel">
+                <span class="close" onclick="closeModal()"><i class="ph-bold ph-x"></i></span>
+                <div id="status-message"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
