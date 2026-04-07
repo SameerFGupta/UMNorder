@@ -31,7 +31,7 @@ def select_modifiers_in_modal(page, item_name, item_modifiers):
         return True
     
     logger.info(f"Selecting modifiers for {item_name}: {item_modifiers}")
-    time.sleep(2)
+    page.wait_for_selector('#product-modal label.modifier', state='visible', timeout=5000)
     
     all_selected = True
 
@@ -51,7 +51,6 @@ def select_modifiers_in_modal(page, item_name, item_modifiers):
                 if norm_mod_name in norm_label_text:
                     checkbox = label.locator('input').first
                     label.scroll_into_view_if_needed()
-                    time.sleep(0.2)
                     
                     if checkbox.count() > 0:
                         if not checkbox.is_checked():
@@ -70,7 +69,6 @@ def select_modifiers_in_modal(page, item_name, item_modifiers):
             logger.warning(f"Error processing modifier {modifier_name}: {str(e)}")
             all_selected = False
     
-    time.sleep(1)
     return all_selected
 
 def setup_browser(p):
@@ -92,10 +90,10 @@ def navigate_and_select_location(page, location_name):
 
     if page.locator("button#go-to-all-locations-button").count() > 0:
         page.locator("button#go-to-all-locations-button").first.click()
-        time.sleep(2)
+        page.wait_for_load_state('networkidle', timeout=5000)
     elif page.locator("button:has-text('All Pickup Locations')").count() > 0:
         page.locator("button:has-text('All Pickup Locations')").first.click()
-        time.sleep(2)
+        page.wait_for_load_state('networkidle', timeout=5000)
 
     location_selected = False
     if location_name:
@@ -111,6 +109,7 @@ def navigate_and_select_location(page, location_name):
             if norm_target in norm_loc or norm_loc in norm_target:
                 logger.info(f"✓ Found location match: '{loc_text_raw.splitlines()[0]}'")
                 loc_item.click()
+                page.wait_for_load_state('networkidle', timeout=5000)
                 location_selected = True
                 break
 
@@ -123,9 +122,9 @@ def navigate_and_select_location(page, location_name):
         if first_loc.count() > 0:
             logger.info(f"Selecting default location: {first_loc.inner_text().splitlines()[0]}")
             first_loc.click()
+            page.wait_for_load_state('networkidle', timeout=5000)
 
     page.wait_for_selector("li.item[data-title]", timeout=15000)
-    time.sleep(2)
     return True, ""
 
 def add_items_to_cart(page, items):
@@ -151,7 +150,7 @@ def add_items_to_cart(page, items):
         if target_item:
             target_item.scroll_into_view_if_needed()
             target_item.click(force=True)
-            time.sleep(2)
+            page.wait_for_selector('#product-modal', state='visible', timeout=5000)
 
             if page.locator('#product-modal').is_visible():
                 select_modifiers_in_modal(page, item_name, item_modifiers)
@@ -166,7 +165,6 @@ def add_items_to_cart(page, items):
                 page.wait_for_selector('#product-modal', state='hidden', timeout=5000)
                 items_added += 1
                 logger.info(f"✓ Added {item_name}")
-                time.sleep(1)
         else:
             logger.warning(f"❌ Item '{item_name}' not found.")
 
@@ -177,11 +175,11 @@ def checkout(page, name, phone_number):
     logger.info("Proceeding to checkout...")
     if page.locator("a#cart").count() > 0: page.locator("a#cart").click()
     else: page.locator("[id='cart']").click()
-    time.sleep(2)
+    page.wait_for_load_state('domcontentloaded')
 
     if page.locator("a#continue-link").count() > 0: page.locator("a#continue-link").click()
     else: page.locator("text=Continue").click()
-    time.sleep(2)
+    page.wait_for_load_state('domcontentloaded')
 
     if page.locator("input#name").count() > 0: page.locator("input#name").fill(name)
     if page.locator("input#phone").count() > 0: page.locator("input#phone").fill(phone_number)
@@ -191,7 +189,7 @@ def checkout(page, name, phone_number):
         return False, "Submit button disabled. Check phone number."
 
     submit_btn.click()
-    time.sleep(5)
+    page.wait_for_url(lambda url: True, wait_until='networkidle', timeout=8000)
 
     content = page.content().lower()
     if "thank you" in content or "confirmed" in content:
