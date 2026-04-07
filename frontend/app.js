@@ -1,553 +1,550 @@
 const API_BASE = "http://localhost:8000";
 
-// Tab switching
-function showTab(tabName, clickedButton = null) {
-    // Hide all tabs
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.remove('active');
+function show_tab(tab_name, clicked_button = null) {
+  document.querySelectorAll(".tab-content").forEach((tab) => {
+    tab.classList.remove("active");
+  });
+
+  document.querySelectorAll(".tab-button").forEach((btn) => {
+    btn.classList.remove("active");
+  });
+
+  document.getElementById(`${tab_name}-tab`).classList.add("active");
+
+  /* We activate the appropriate UI tab button to provide a clear visual indicator of the current active view to the user. */
+  if (clicked_button) {
+    clicked_button.classList.add("active");
+  } else {
+    const buttons = document.querySelectorAll(".tab-button");
+    buttons.forEach((btn) => {
+      const btn_text = btn.textContent.toLowerCase();
+      if (
+        (tab_name === "presets" && btn_text.includes("presets")) ||
+        (tab_name === "create" && btn_text.includes("create")) ||
+        (tab_name === "users" && btn_text.includes("users"))
+      ) {
+        btn.classList.add("active");
+      }
     });
-    
-    // Remove active class from all buttons
-    document.querySelectorAll('.tab-button').forEach(btn => {
-        btn.classList.remove('active');
+  }
+
+  /* We dynamically load data on tab switch instead of upfront to minimize initial payload and ensure fresh data. */
+  if (tab_name === "presets") {
+    load_presets();
+  } else if (tab_name === "users") {
+    load_users();
+  }
+}
+
+/* We use document.createElement to natively escape HTML and prevent Cross-Site Scripting (XSS) vulnerabilities, as assigning to innerHTML directly with user input is unsafe. */
+function escape_html(str) {
+  if (!str) return "";
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function load_presets() {
+  const presets_list = document.getElementById("presets-list");
+  presets_list.textContent = "";
+  const loading_div = document.createElement("div");
+  loading_div.className = "loading";
+  loading_div.textContent = "Loading presets...";
+  presets_list.appendChild(loading_div);
+
+  try {
+    const response = await fetch(`${API_BASE}/api/presets`, {
+      headers: { "ngrok-skip-browser-warning": "true" },
     });
-    
-    // Show selected tab
-    document.getElementById(`${tabName}-tab`).classList.add('active');
-    
-    // Activate button - use clickedButton if provided, otherwise find by tab name
-    if (clickedButton) {
-        clickedButton.classList.add('active');
-    } else {
-        // Find the button that corresponds to this tab
-        const buttons = document.querySelectorAll('.tab-button');
-        buttons.forEach(btn => {
-            const btnText = btn.textContent.toLowerCase();
-            if ((tabName === 'presets' && btnText.includes('presets')) ||
-                (tabName === 'create' && btnText.includes('create')) ||
-                (tabName === 'users' && btnText.includes('users'))) {
-                btn.classList.add('active');
-            }
-        });
-    }
-    
-    // Load data if needed
-    if (tabName === 'presets') {
-        loadPresets();
-    } else if (tabName === 'users') {
-        loadUsers();
-    }
-}
+    if (!response.ok) throw new Error("Failed to load presets");
 
-// Helper to escape HTML and prevent XSS
-function escapeHTML(str) {
-    if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}
+    const presets = await response.json();
 
-// Load and display presets
-async function loadPresets() {
-    const presetsList = document.getElementById('presets-list');
-    presetsList.textContent = '';
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'loading';
-    loadingDiv.textContent = 'Loading presets...';
-    presetsList.appendChild(loadingDiv);
-    
-    try {
-        const response = await fetch(`${API_BASE}/api/presets`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
-        if (!response.ok) throw new Error('Failed to load presets');
-        
-        const presets = await response.json();
-        
-        presetsList.textContent = '';
-        if (presets.length === 0) {
-            const noPresetsDiv = document.createElement('div');
-            noPresetsDiv.className = 'loading';
-            noPresetsDiv.textContent = 'No presets yet. Create one to get started!';
-            presetsList.appendChild(noPresetsDiv);
-            return;
+    presets_list.textContent = "";
+    if (presets.length === 0) {
+      const no_presets_div = document.createElement("div");
+      no_presets_div.className = "loading";
+      no_presets_div.textContent = "No presets yet. Create one to get started!";
+      presets_list.appendChild(no_presets_div);
+      return;
+    }
+
+    /* We load users upfront to build a map, preventing N+1 network requests when resolving user names for presets. */
+    const users_response = await fetch(`${API_BASE}/api/users`, {
+      headers: { "ngrok-skip-browser-warning": "true" },
+    });
+    const users = await users_response.json();
+    const user_map = {};
+    users.forEach((u) => (user_map[u.id] = u));
+
+    presets.forEach((preset) => {
+      const user = user_map[preset.user_id] || {
+        name: "Unknown",
+        phone_number: "N/A",
+      };
+      const card = document.createElement("div");
+      card.className = "preset-card";
+
+      const h3 = document.createElement("h3");
+      h3.textContent = preset.preset_name;
+      card.appendChild(h3);
+
+      const items_div = document.createElement("div");
+      items_div.className = "items";
+      const items_strong = document.createElement("strong");
+      items_strong.textContent = "Items:";
+      items_div.appendChild(items_strong);
+
+      const ul = document.createElement("ul");
+      let items = preset.items;
+      if (typeof items === "string") {
+        try {
+          items = JSON.parse(items);
+        } catch (e) {
+          items = [];
         }
-        
-        // Load users to get names
-        const usersResponse = await fetch(`${API_BASE}/api/users`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
+      }
+
+      if (items && items.length > 0) {
+        items.forEach((item) => {
+          const li = document.createElement("li");
+          if (typeof item === "string") {
+            li.textContent = item;
+          } else {
+            li.textContent = item.name;
+            if (item.modifiers && item.modifiers.length > 0) {
+              const span = document.createElement("span");
+              span.style.color = "#666";
+              span.style.fontSize = "0.9em";
+              span.textContent = ` (${item.modifiers.join(", ")})`;
+              li.appendChild(span);
+            }
+          }
+          ul.appendChild(li);
         });
-        const users = await usersResponse.json();
-        const userMap = {};
-        users.forEach(u => userMap[u.id] = u);
-        
-        presets.forEach(preset => {
-            const user = userMap[preset.user_id] || { name: 'Unknown', phone_number: 'N/A' };
-            const card = document.createElement('div');
-            card.className = 'preset-card';
+      }
+      items_div.appendChild(ul);
+      card.appendChild(items_div);
 
-            const h3 = document.createElement('h3');
-            h3.textContent = preset.preset_name;
-            card.appendChild(h3);
+      const user_div = document.createElement("div");
+      user_div.style.marginBottom = "10px";
+      user_div.style.fontSize = "0.9rem";
+      user_div.style.color = "#666";
 
-            const itemsDiv = document.createElement('div');
-            itemsDiv.className = 'items';
-            const itemsStrong = document.createElement('strong');
-            itemsStrong.textContent = 'Items:';
-            itemsDiv.appendChild(itemsStrong);
-            
-            const ul = document.createElement('ul');
-            let items = preset.items;
-            if (typeof items === 'string') {
-                try {
-                    items = JSON.parse(items);
-                } catch (e) {
-                    items = [];
-                }
-            }
+      const user_strong = document.createElement("strong");
+      user_strong.textContent = "User:";
+      user_div.appendChild(user_strong);
+      user_div.appendChild(
+        document.createTextNode(` ${user.name} (${user.phone_number})`),
+      );
+      user_div.appendChild(document.createElement("br"));
 
-            if (items && items.length > 0) {
-                items.forEach(item => {
-                    const li = document.createElement('li');
-                    if (typeof item === 'string') {
-                        // Old format
-                        li.textContent = item;
-                    } else {
-                        // New format with modifiers
-                        li.textContent = item.name;
-                        if (item.modifiers && item.modifiers.length > 0) {
-                            const span = document.createElement('span');
-                            span.style.color = '#666';
-                            span.style.fontSize = '0.9em';
-                            span.textContent = ` (${item.modifiers.join(', ')})`;
-                            li.appendChild(span);
-                        }
-                    }
-                    ul.appendChild(li);
-                });
-            }
-            itemsDiv.appendChild(ul);
-            card.appendChild(itemsDiv);
+      const location_strong = document.createElement("strong");
+      location_strong.textContent = "Location:";
+      user_div.appendChild(location_strong);
+      if (preset.location_name) {
+        user_div.appendChild(
+          document.createTextNode(` ${preset.location_name}`),
+        );
+      } else {
+        const em = document.createElement("em");
+        em.textContent = " Any available";
+        user_div.appendChild(em);
+      }
+      card.appendChild(user_div);
 
-            const userDiv = document.createElement('div');
-            userDiv.style.marginBottom = '10px';
-            userDiv.style.fontSize = '0.9rem';
-            userDiv.style.color = '#666';
+      const order_btn = document.createElement("button");
+      order_btn.className = "btn btn-order";
+      order_btn.textContent = "ORDER NOW";
+      order_btn.onclick = (e) =>
+        place_order(preset.id, preset.preset_name, e.target);
+      card.appendChild(order_btn);
 
-            const userStrong = document.createElement('strong');
-            userStrong.textContent = 'User:';
-            userDiv.appendChild(userStrong);
-            userDiv.appendChild(document.createTextNode(` ${user.name} (${user.phone_number})`));
-            userDiv.appendChild(document.createElement('br'));
+      const delete_btn = document.createElement("button");
+      delete_btn.className = "btn btn-delete";
+      delete_btn.textContent = "Delete Preset";
+      delete_btn.onclick = () => delete_preset(preset.id);
+      card.appendChild(delete_btn);
 
-            const locationStrong = document.createElement('strong');
-            locationStrong.textContent = 'Location:';
-            userDiv.appendChild(locationStrong);
-            if (preset.location_name) {
-                userDiv.appendChild(document.createTextNode(` ${preset.location_name}`));
-            } else {
-                const em = document.createElement('em');
-                em.textContent = ' Any available';
-                userDiv.appendChild(em);
-            }
-            card.appendChild(userDiv);
-
-            const orderBtn = document.createElement('button');
-            orderBtn.className = 'btn btn-order';
-            orderBtn.textContent = 'ORDER NOW';
-            orderBtn.onclick = (e) => placeOrder(preset.id, preset.preset_name, e.target);
-            card.appendChild(orderBtn);
-            
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'btn btn-delete';
-            deleteBtn.textContent = 'Delete Preset';
-            deleteBtn.onclick = () => deletePreset(preset.id);
-            card.appendChild(deleteBtn);
-
-            presetsList.appendChild(card);
-        });
-    } catch (error) {
-        presetsList.textContent = '';
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'loading';
-        errorDiv.style.color = '#ff6b6b';
-        errorDiv.textContent = `Error loading presets: ${error.message}`;
-        presetsList.appendChild(errorDiv);
-    }
+      presets_list.appendChild(card);
+    });
+  } catch (error) {
+    presets_list.textContent = "";
+    const error_div = document.createElement("div");
+    error_div.className = "loading";
+    error_div.style.color = "#ff6b6b";
+    error_div.textContent = `Error loading presets: ${error.message}`;
+    presets_list.appendChild(error_div);
+  }
 }
 
-// Load and display users
-async function loadUsers() {
-    const usersList = document.getElementById('users-list');
-    usersList.textContent = '';
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'loading';
-    loadingDiv.textContent = 'Loading users...';
-    usersList.appendChild(loadingDiv);
-    
-    try {
-        const response = await fetch(`${API_BASE}/api/users`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
-        if (!response.ok) throw new Error('Failed to load users');
-        
-        const users = await response.json();
-        
-        usersList.textContent = '';
-        if (users.length === 0) {
-            const noUsersDiv = document.createElement('div');
-            noUsersDiv.className = 'loading';
-            noUsersDiv.textContent = 'No users yet. Add one to get started!';
-            usersList.appendChild(noUsersDiv);
-            return;
-        }
-        
-        users.forEach(user => {
-            const card = document.createElement('div');
-            card.className = 'user-card';
-            const innerDiv = document.createElement('div');
+async function load_users() {
+  const users_list = document.getElementById("users-list");
+  users_list.textContent = "";
+  const loading_div = document.createElement("div");
+  loading_div.className = "loading";
+  loading_div.textContent = "Loading users...";
+  users_list.appendChild(loading_div);
 
-            const strong = document.createElement('strong');
-            strong.textContent = user.name;
-            innerDiv.appendChild(strong);
-            innerDiv.appendChild(document.createElement('br'));
+  try {
+    const response = await fetch(`${API_BASE}/api/users`, {
+      headers: { "ngrok-skip-browser-warning": "true" },
+    });
+    if (!response.ok) throw new Error("Failed to load users");
 
-            const span = document.createElement('span');
-            span.style.color = '#666';
-            span.textContent = user.phone_number;
-            innerDiv.appendChild(span);
+    const users = await response.json();
 
-            card.appendChild(innerDiv);
-            usersList.appendChild(card);
-        });
-    } catch (error) {
-        usersList.textContent = '';
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'loading';
-        errorDiv.style.color = '#ff6b6b';
-        errorDiv.textContent = `Error loading users: ${error.message}`;
-        usersList.appendChild(errorDiv);
+    users_list.textContent = "";
+    if (users.length === 0) {
+      const no_users_div = document.createElement("div");
+      no_users_div.className = "loading";
+      no_users_div.textContent = "No users yet. Add one to get started!";
+      users_list.appendChild(no_users_div);
+      return;
     }
+
+    users.forEach((user) => {
+      const card = document.createElement("div");
+      card.className = "user-card";
+      const inner_div = document.createElement("div");
+
+      const strong = document.createElement("strong");
+      strong.textContent = user.name;
+      inner_div.appendChild(strong);
+      inner_div.appendChild(document.createElement("br"));
+
+      const span = document.createElement("span");
+      span.style.color = "#666";
+      span.textContent = user.phone_number;
+      inner_div.appendChild(span);
+
+      card.appendChild(inner_div);
+      users_list.appendChild(card);
+    });
+  } catch (error) {
+    users_list.textContent = "";
+    const error_div = document.createElement("div");
+    error_div.className = "loading";
+    error_div.style.color = "#ff6b6b";
+    error_div.textContent = `Error loading users: ${error.message}`;
+    users_list.appendChild(error_div);
+  }
 }
 
-// Load users for dropdown
-async function loadUsersForDropdown() {
-    const userSelect = document.getElementById('user-select');
-    
-    try {
-        const response = await fetch(`${API_BASE}/api/users`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
-        if (!response.ok) throw new Error('Failed to load users');
-        
-        const users = await response.json();
-        
-        userSelect.textContent = '';
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = 'Select a user...';
-        userSelect.appendChild(defaultOption);
+async function load_users_for_dropdown() {
+  const user_select = document.getElementById("user-select");
 
-        users.forEach(user => {
-            const option = document.createElement('option');
-            option.value = user.id;
-            option.textContent = `${user.name} (${user.phone_number})`;
-            userSelect.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error loading users:', error);
-    }
+  try {
+    const response = await fetch(`${API_BASE}/api/users`, {
+      headers: { "ngrok-skip-browser-warning": "true" },
+    });
+    if (!response.ok) throw new Error("Failed to load users");
+
+    const users = await response.json();
+
+    user_select.textContent = "";
+    const default_option = document.createElement("option");
+    default_option.value = "";
+    default_option.textContent = "Select a user...";
+    user_select.appendChild(default_option);
+
+    users.forEach((user) => {
+      const option = document.createElement("option");
+      option.value = user.id;
+      option.textContent = `${user.name} (${user.phone_number})`;
+      user_select.appendChild(option);
+    });
+  } catch (error) {
+    console.error("Error loading users:", error);
+  }
 }
 
-// Create user
-document.getElementById('create-user-form').addEventListener('submit', async (e) => {
+document
+  .getElementById("create-user-form")
+  .addEventListener("submit", async (e) => {
     e.preventDefault();
-    
-    const name = document.getElementById('user-name').value;
-    const phone = document.getElementById('user-phone').value;
-    
+
+    const name = document.getElementById("user-name").value;
+    const phone = document.getElementById("user-phone").value;
+
     try {
-        const response = await fetch(`${API_BASE}/api/users`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true',
-            },
-            body: JSON.stringify({ name, phone_number: phone }),
-        });
-        
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to create user');
-        }
-        
-        showStatus('User created successfully!', 'success');
-        document.getElementById('create-user-form').reset();
-        loadUsers();
-        loadUsersForDropdown();
+      const response = await fetch(`${API_BASE}/api/users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify({ name, phone_number: phone }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Failed to create user");
+      }
+
+      show_status("User created successfully!", "success");
+      document.getElementById("create-user-form").reset();
+      load_users();
+      load_users_for_dropdown();
     } catch (error) {
-        showStatus(`Error: ${error.message}`, 'error');
+      show_status(`Error: ${error.message}`, "error");
     }
-});
+  });
 
-// FIX: Add item row to form with correct Dark Mode visibility
-function addItemRow(itemName = '', modifiers = []) {
-    const container = document.getElementById('items-container');
-    const itemIndex = container.children.length;
-    const itemDiv = document.createElement('div');
-    itemDiv.className = 'item-row';
-    
-    // Header row
-    const headerDiv = document.createElement('div');
-    headerDiv.style.display = 'flex';
-    headerDiv.style.justifyContent = 'space-between';
-    headerDiv.style.alignItems = 'center';
-    headerDiv.style.marginBottom = '15px';
+function add_item_row(item_name = "", modifiers = []) {
+  const container = document.getElementById("items-container");
+  const item_index = container.children.length;
+  const item_div = document.createElement("div");
+  item_div.className = "item-row";
 
-    const strong = document.createElement('strong');
-    strong.textContent = `Item ${itemIndex + 1}`;
-    headerDiv.appendChild(strong);
+  const header_div = document.createElement("div");
+  header_div.style.display = "flex";
+  header_div.style.justifyContent = "space-between";
+  header_div.style.alignItems = "center";
+  header_div.style.marginBottom = "15px";
 
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'btn btn-sm';
-    removeBtn.textContent = 'Remove';
-    removeBtn.onclick = (e) => removeItemRow(e.target);
-    headerDiv.appendChild(removeBtn);
-    itemDiv.appendChild(headerDiv);
+  const strong = document.createElement("strong");
+  strong.textContent = `Item ${item_index + 1}`;
+  header_div.appendChild(strong);
 
-    // Item Name group
-    const nameGroup = document.createElement('div');
-    nameGroup.className = 'form-group';
-    nameGroup.style.marginBottom = '15px';
+  const remove_btn = document.createElement("button");
+  remove_btn.type = "button";
+  remove_btn.className = "btn btn-sm";
+  remove_btn.textContent = "Remove";
+  remove_btn.onclick = (e) => remove_item_row(e.target);
+  header_div.appendChild(remove_btn);
+  item_div.appendChild(header_div);
 
-    const nameLabel = document.createElement('label');
-    nameLabel.textContent = 'Item Name:';
-    nameGroup.appendChild(nameLabel);
+  const name_group = document.createElement("div");
+  name_group.className = "form-group";
+  name_group.style.marginBottom = "15px";
 
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.className = 'item-name';
-    nameInput.placeholder = 'e.g., Hamburger';
-    nameInput.value = itemName;
-    nameInput.required = true;
-    nameGroup.appendChild(nameInput);
-    itemDiv.appendChild(nameGroup);
+  const name_label = document.createElement("label");
+  name_label.textContent = "Item Name:";
+  name_group.appendChild(name_label);
 
-    // Modifiers group
-    const modGroup = document.createElement('div');
-    modGroup.className = 'form-group';
-    modGroup.style.marginBottom = '0';
+  const name_input = document.createElement("input");
+  name_input.type = "text";
+  name_input.className = "item-name";
+  name_input.placeholder = "e.g., Hamburger";
+  name_input.value = item_name;
+  name_input.required = true;
+  name_group.appendChild(name_input);
+  item_div.appendChild(name_group);
 
-    const modLabel = document.createElement('label');
-    modLabel.textContent = 'Modifiers (comma-separated):';
-    modGroup.appendChild(modLabel);
+  const mod_group = document.createElement("div");
+  mod_group.className = "form-group";
+  mod_group.style.marginBottom = "0";
 
-    const modInput = document.createElement('input');
-    modInput.type = 'text';
-    modInput.className = 'item-modifiers';
-    modInput.placeholder = 'e.g., Bun, American Cheese';
-    modInput.value = modifiers.join(', ');
-    modGroup.appendChild(modInput);
+  const mod_label = document.createElement("label");
+  mod_label.textContent = "Modifiers (comma-separated):";
+  mod_group.appendChild(mod_label);
 
-    const small = document.createElement('small');
-    small.style.display = 'block';
-    small.style.color = '#888';
-    small.style.marginTop = '8px';
-    small.style.fontSize = '0.85rem';
-    small.textContent = 'Enter modifier names exactly as they appear';
-    modGroup.appendChild(small);
-    itemDiv.appendChild(modGroup);
+  const mod_input = document.createElement("input");
+  mod_input.type = "text";
+  mod_input.className = "item-modifiers";
+  mod_input.placeholder = "e.g., Bun, American Cheese";
+  mod_input.value = modifiers.join(", ");
+  mod_group.appendChild(mod_input);
 
-    container.appendChild(itemDiv);
+  const small = document.createElement("small");
+  small.style.display = "block";
+  small.style.color = "#888";
+  small.style.marginTop = "8px";
+  small.style.fontSize = "0.85rem";
+  small.textContent = "Enter modifier names exactly as they appear";
+  mod_group.appendChild(small);
+  item_div.appendChild(mod_group);
+
+  container.appendChild(item_div);
 }
 
-// Remove item row
-function removeItemRow(button) {
-    button.closest('.item-row').remove();
-    // Update item numbers
-    const container = document.getElementById('items-container');
-    Array.from(container.children).forEach((row, index) => {
-        row.querySelector('strong').textContent = `Item ${index + 1}`;
-    });
+function remove_item_row(button) {
+  button.closest(".item-row").remove();
+  /* Re-indexing rows ensures the UI numbering remains contiguous and predictable after row deletions. */
+  const container = document.getElementById("items-container");
+  Array.from(container.children).forEach((row, index) => {
+    row.querySelector("strong").textContent = `Item ${index + 1}`;
+  });
 }
 
-// Create preset
-document.getElementById('create-preset-form').addEventListener('submit', async (e) => {
+document
+  .getElementById("create-preset-form")
+  .addEventListener("submit", async (e) => {
     e.preventDefault();
-    
-    const userId = parseInt(document.getElementById('user-select').value);
-    const presetName = document.getElementById('preset-name').value;
-    const locationName = document.getElementById('location-select').value || null;
-    
-    // Collect items with modifiers
-    const itemRows = document.querySelectorAll('.item-row');
+
+    const user_id = parseInt(document.getElementById("user-select").value);
+    const preset_name = document.getElementById("preset-name").value;
+    const location_name =
+      document.getElementById("location-select").value || null;
+
+    const item_rows = document.querySelectorAll(".item-row");
     const items = [];
-    
-    itemRows.forEach(row => {
-        const itemName = row.querySelector('.item-name').value.trim();
-        const modifiersText = row.querySelector('.item-modifiers').value.trim();
-        
-        if (itemName) {
-            const modifiers = modifiersText
-                ? modifiersText.split(',').map(m => m.trim()).filter(m => m.length > 0)
-                : [];
-            items.push({
-                name: itemName,
-                modifiers: modifiers
-            });
-        }
+
+    item_rows.forEach((row) => {
+      const item_name = row.querySelector(".item-name").value.trim();
+      const modifiers_text = row.querySelector(".item-modifiers").value.trim();
+
+      if (item_name) {
+        const modifiers = modifiers_text
+          ? modifiers_text
+              .split(",")
+              .map((m) => m.trim())
+              .filter((m) => m.length > 0)
+          : [];
+        items.push({
+          name: item_name,
+          modifiers: modifiers,
+        });
+      }
     });
-    
+
     if (items.length === 0) {
-        showStatus('Please add at least one item', 'error');
-        return;
+      show_status("Please add at least one item", "error");
+      return;
     }
-    
+
     try {
-        const response = await fetch(`${API_BASE}/api/presets`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true',
-            },
-            body: JSON.stringify({
-                user_id: userId,
-                preset_name: presetName,
-                items: items,
-                location_name: locationName,
-            }),
-        });
-        
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to create preset');
-        }
-        
-        showStatus('Preset created successfully!', 'success');
-        document.getElementById('create-preset-form').reset();
-        document.getElementById('items-container').textContent = '';
-        showTab('presets');
-        loadPresets();
+      const response = await fetch(`${API_BASE}/api/presets`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify({
+          user_id: user_id,
+          preset_name: preset_name,
+          items: items,
+          location_name: location_name,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Failed to create preset");
+      }
+
+      show_status("Preset created successfully!", "success");
+      document.getElementById("create-preset-form").reset();
+      document.getElementById("items-container").textContent = "";
+      show_tab("presets");
+      load_presets();
     } catch (error) {
-        showStatus(`Error: ${error.message}`, 'error');
+      show_status(`Error: ${error.message}`, "error");
     }
-});
+  });
 
-// Place order
-async function placeOrder(presetId, presetName, buttonElement = null) {
-    const button = buttonElement || (typeof event !== 'undefined' && event?.target) || document.querySelector(`button[onclick*="placeOrder(${presetId}"]`);
-    if (!button) {
-        showStatus('Error: Could not find order button', 'error');
-        return;
+async function place_order(preset_id, preset_name, button_element = null) {
+  const button =
+    button_element ||
+    (typeof event !== "undefined" && event?.target) ||
+    document.querySelector(`button[onclick*="place_order(${preset_id}"]`);
+  if (!button) {
+    show_status("Error: Could not find order button", "error");
+    return;
+  }
+  const original_text = button.textContent;
+
+  /* We disable the submission button immediately to prevent duplicate concurrent network requests and race conditions. */
+  button.disabled = true;
+  button.textContent = "⏳ Processing...";
+  button.classList.add("btn-processing");
+
+  show_status(`Placing order for "${preset_name}"...`, "processing");
+
+  try {
+    const response = await fetch(`${API_BASE}/api/order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: JSON.stringify({ preset_id: preset_id }),
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      show_status(`✅ ${result.message}`, "success");
+    } else {
+      let message = `❌ ${result.message}`;
+      if (result.cooldown_remaining) {
+        const minutes = Math.floor(result.cooldown_remaining / 60);
+        const seconds = result.cooldown_remaining % 60;
+        message += ` (${minutes}m ${seconds}s remaining)`;
+      }
+      show_status(message, "error");
     }
-    const originalText = button.textContent;
-    
-    // Disable button and show processing
-    button.disabled = true;
-    button.textContent = '⏳ Processing...';
-    button.classList.add('btn-processing');
-    
-    showStatus(`Placing order for "${presetName}"...`, 'processing');
-    
-    try {
-        const response = await fetch(`${API_BASE}/api/order`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true',
-            },
-            body: JSON.stringify({ preset_id: presetId }),
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showStatus(`✅ ${result.message}`, 'success');
-        } else {
-            let message = `❌ ${result.message}`;
-            if (result.cooldown_remaining) {
-                const minutes = Math.floor(result.cooldown_remaining / 60);
-                const seconds = result.cooldown_remaining % 60;
-                message += ` (${minutes}m ${seconds}s remaining)`;
-            }
-            showStatus(message, 'error');
-        }
-    } catch (error) {
-        showStatus(`❌ Error: ${error.message}`, 'error');
-    } finally {
-        // Re-enable button
-        button.disabled = false;
-        button.textContent = originalText;
-        button.classList.remove('btn-processing');
-    }
+  } catch (error) {
+    show_status(`❌ Error: ${error.message}`, "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = original_text;
+    button.classList.remove("btn-processing");
+  }
 }
 
-// Delete preset
-async function deletePreset(presetId) {
-    if (!confirm('Are you sure you want to delete this preset?')) {
-        return;
+async function delete_preset(preset_id) {
+  if (!confirm("Are you sure you want to delete this preset?")) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/presets/${preset_id}`, {
+      method: "DELETE",
+      headers: { "ngrok-skip-browser-warning": "true" },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to delete preset");
     }
-    
-    try {
-        const response = await fetch(`${API_BASE}/api/presets/${presetId}`, {
-            method: 'DELETE',
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
-        
-        if (!response.ok) {
-            throw new Error('Failed to delete preset');
-        }
-        
-        showStatus('Preset deleted successfully!', 'success');
-        loadPresets();
-    } catch (error) {
-        showStatus(`Error: ${error.message}`, 'error');
-    }
+
+    show_status("Preset deleted successfully!", "success");
+    load_presets();
+  } catch (error) {
+    show_status(`Error: ${error.message}`, "error");
+  }
 }
 
-// Show status modal
-function showStatus(message, type) {
-    const modal = document.getElementById('status-modal');
-    const messageDiv = document.getElementById('status-message');
-    
-    messageDiv.className = `status-${type}`;
-    messageDiv.textContent = message;
-    
-    if (type === 'processing') {
-        const spinner = document.createElement('div');
-        spinner.className = 'spinner';
-        messageDiv.appendChild(spinner);
-    }
-    
-    modal.style.display = 'block';
-    
-    // Auto-close after 5 seconds for success/error (not processing)
-    if (type !== 'processing') {
-        setTimeout(() => {
-            closeModal();
-        }, 5000);
-    }
+function show_status(message, type) {
+  const modal = document.getElementById("status-modal");
+  const message_div = document.getElementById("status-message");
+
+  message_div.className = `status-${type}`;
+  message_div.textContent = message;
+
+  if (type === "processing") {
+    const spinner = document.createElement("div");
+    spinner.className = "spinner";
+    message_div.appendChild(spinner);
+  }
+
+  modal.style.display = "block";
+
+  /* Automatically dismissing the modal improves user flow by not requiring explicit dismissal for transient statuses. */
+  if (type !== "processing") {
+    setTimeout(() => {
+      close_modal();
+    }, 5000);
+  }
 }
 
-// Close modal
-function closeModal() {
-    document.getElementById('status-modal').style.display = 'none';
+function close_modal() {
+  document.getElementById("status-modal").style.display = "none";
 }
 
-// Close modal when clicking outside
-window.onclick = function(event) {
-    const modal = document.getElementById('status-modal');
-    if (event.target === modal) {
-        closeModal();
-    }
-}
+/* Supporting backdrop clicks provides an intuitive, standard exit interaction for modals without forcing the user to hunt for a close button. */
+window.onclick = function (event) {
+  const modal = document.getElementById("status-modal");
+  if (event.target === modal) {
+    close_modal();
+  }
+};
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-    loadPresets();
-    loadUsers();
-    loadUsersForDropdown();
-    // Add one empty item row by default
-    addItemRow();
+document.addEventListener("DOMContentLoaded", () => {
+  load_presets();
+  load_users();
+  load_users_for_dropdown();
+  /* Providing an initial empty row improves UX by guiding the user directly into data entry. */
+  add_item_row();
 });

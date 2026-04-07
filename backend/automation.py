@@ -21,7 +21,7 @@ USER_AGENT = (
 )
 
 def normalize_text(text):
-    """Helper to normalize text for comparison"""
+    """We aggressively normalize text by lowercasing and stripping formatting to ensure text-matching is robust against arbitrary UI changes in spacing or casing."""
     if not text:
         return ""
     return text.lower().strip().replace("  ", " ").replace("-", "")
@@ -35,8 +35,7 @@ def select_modifiers_in_modal(page, item_name, item_modifiers):
     
     all_selected = True
 
-    # Cache modifier labels and their normalized text outside the loop to avoid
-    # repeated costly IPC round-trips to the browser.
+    """We cache modifier labels and their normalized text outside the loop to avoid repeated costly IPC round-trips to the browser."""
     modifier_labels = page.locator('#product-modal label.modifier').all()
     cached_labels = []
     for label in modifier_labels:
@@ -72,7 +71,7 @@ def select_modifiers_in_modal(page, item_name, item_modifiers):
     return all_selected
 
 def setup_browser(p):
-    """Sets up the browser and context."""
+    """We explicitly set viewport and user-agent strings to mimic a realistic mobile device, which prevents the target site from serving a desktop layout or blocking the request."""
     browser = p.chromium.launch(headless=HEADLESS_MODE)
     context = browser.new_context(
         viewport={"width": VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
@@ -81,7 +80,6 @@ def setup_browser(p):
     return browser, context.new_page()
 
 def navigate_and_select_location(page, location_name):
-    """Navigates to the target URL and selects the pickup location."""
     page.goto(TARGET_URL, wait_until="networkidle", timeout=TIMEOUT)
     try:
         page.wait_for_selector("button#go-to-all-locations-button, button:has-text('All Pickup Locations'), li[id^='location']", state="attached", timeout=10000)
@@ -128,7 +126,6 @@ def navigate_and_select_location(page, location_name):
     return True, ""
 
 def add_items_to_cart(page, items):
-    """Adds items to the cart."""
     items_added = 0
     all_menu_items = page.locator("li.item[data-title]").all()
 
@@ -171,7 +168,6 @@ def add_items_to_cart(page, items):
     return items_added > 0
 
 def checkout(page, name, phone_number):
-    """Handles the checkout process."""
     logger.info("Proceeding to checkout...")
     if page.locator("a#cart").count() > 0: page.locator("a#cart").click()
     else: page.locator("[id='cart']").click()
