@@ -19,14 +19,14 @@ from sqlalchemy.sql import func
 from backend.automation import run_order_automation
 import logging
 
-# Database setup
+"""Setting check_same_thread to False is required for SQLite since FastAPI may dispatch requests across multiple threads."""
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./umnorder.db")
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-# SQLAlchemy models
+"""Declarative base definitions allow us to use ORM features rather than raw SQL, providing type safety and easier migrations."""
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -54,18 +54,17 @@ class OrderHistory(Base):
     message = Column(Text, nullable=False)
     ordered_at = Column(DateTime(timezone=True), server_default=func.now())
 
-# Setup logging
+"""Standardized logger setup is used to ensure all backend components log consistently."""
 logger = logging.getLogger(__name__)
 
-# Create database tables
+"""Creating all tables explicitly at startup ensures the database schema is immediately ready for incoming requests."""
 Base.metadata.create_all(bind=engine)
 
-# Migrate existing database: Add location_name column if it doesn't exist
+"""We execute raw PRAGMA SQL to check if the column exists, since SQLite does not support robust ALTER TABLE statements easily through SQLAlchemy."""
 def migrate_database():
-    """Add location_name column to presets table if it doesn't exist"""
     try:
-        with engine.begin() as conn:  # Use begin() for automatic transaction handling
-            # Check if column exists by querying table info
+        """Using engine.begin() provides a context manager that automatically commits or rolls back transactions based on execution success."""
+        with engine.begin() as conn:
             result = conn.execute(text("PRAGMA table_info(presets)"))
             columns = [row[1] for row in result.fetchall()]
             
@@ -76,15 +75,14 @@ def migrate_database():
             else:
                 logger.info("Database already has location_name column")
     except Exception as e:
-        # It's OK if the table doesn't exist yet - create_all() will create it with the new column
+        """Gracefully handle initial startup when the table may not exist yet; create_all() will handle the actual creation in that case."""
         logger.info(f"Migration check: {str(e)} (this is OK if table doesn't exist yet)")
 
-# Run migration
 migrate_database()
 
 app = FastAPI(title="UMN Order Automation")
 
-# Exception handlers for proper JSON error responses
+"""Exception handlers mapped globally to ensure we never leak sensitive stack traces and always return well-formed JSON."""
 @app.exception_handler(SQLAlchemyError)
 async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
     """Handle database errors and return JSON response"""
@@ -105,23 +103,22 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={"detail": f"Internal server error: {str(exc)}"}
     )
 
-# Get frontend path
+"""Dynamically determine frontend path relative to this script to support arbitrary working directories during execution."""
 frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 
-# Mount static files (CSS, JS)
 if os.path.exists(frontend_path):
     app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 
-# CORS middleware to allow frontend to communicate with backend
+"""CORS configuration allows the separate frontend implementation to hit these API endpoints during development and deployment."""
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with your actual domain
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Dependency to get DB session
+"""Using dependency injection (Yield) for the DB session ensures we automatically close the transaction pool after the request lifecycle completes, preventing connection leaks."""
 def get_db():
     db = SessionLocal()
     try:
@@ -130,7 +127,7 @@ def get_db():
         db.close()
 
 
-# Pydantic models for request/response
+"""Pydantic validation layers guarantee request schemas match expected structures, preventing downstream type or missing key errors."""
 class UserCreate(BaseModel):
     name: str
     phone_number: str
@@ -138,14 +135,14 @@ class UserCreate(BaseModel):
 
 class ItemWithModifiers(BaseModel):
     name: str
-    modifiers: List[str] = []  # List of modifier names (e.g., ["Bun", "American Cheese"])
+    modifiers: List[str] = []
 
 
 class PresetCreate(BaseModel):
     user_id: int
     preset_name: str
-    items: List[ItemWithModifiers]  # List of items with their modifiers
-    location_name: Optional[str] = None  # Dining hall location name
+    items: List[ItemWithModifiers]
+    location_name: Optional[str] = None
 
 
 class PresetResponse(BaseModel):
@@ -166,16 +163,11 @@ class OrderRequest(BaseModel):
 class OrderResponse(BaseModel):
     success: bool
     message: str
-    cooldown_remaining: Optional[int] = None  # seconds remaining
+    cooldown_remaining: Optional[int] = None
 
 
-# Helper functions
-
+"""Parsing utility checks data structure format and upgrades legacy format objects dynamically, allowing safe backwards compatibility with older database records."""
 def parse_items_json(items_json: str) -> List[ItemWithModifiers]:
-    """
-    Parse the items_json string from the database into a list of ItemWithModifiers objects.
-    Handles both old format (list of strings) and new format (list of dicts).
-    """
     if not items_json:
         return []
 
@@ -183,16 +175,11 @@ def parse_items_json(items_json: str) -> List[ItemWithModifiers]:
     if not items_list:
         return []
 
-    # Handle both old format (list of strings) and new format (list of dicts)
     if isinstance(items_list[0], str):
-        # Old format: convert to new format
         return [ItemWithModifiers(name=item, modifiers=[]) for item in items_list]
     else:
-        # New format
         return [ItemWithModifiers(name=item["name"], modifiers=item.get("modifiers", [])) for item in items_list]
 
-
-# API Endpoints
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -224,7 +211,7 @@ def get_users(db: Session = Depends(get_db)):
 @app.post("/api/presets", response_model=PresetResponse)
 def create_preset(preset: PresetCreate, db: Session = Depends(get_db)):
     """Create a new order preset"""
-    # Convert items to JSON (list of dicts with name and modifiers)
+    """Explicitly remapping the Pydantic models to dicts before JSON serialization due to legacy format persistence constraints."""
     items_data = [{"name": item.name, "modifiers": item.modifiers} for item in preset.items]
     db_preset = Preset(
         user_id=preset.user_id,
@@ -235,7 +222,7 @@ def create_preset(preset: PresetCreate, db: Session = Depends(get_db)):
     db.add(db_preset)
     db.commit()
     db.refresh(db_preset)
-    # Parse back to ItemWithModifiers objects
+    """We parse back from JSON locally after commit so the response accurately reflects what is persisted."""
     items_objects = parse_items_json(db_preset.items_json)
     return PresetResponse(
         id=db_preset.id,
@@ -294,17 +281,15 @@ def delete_preset(preset_id: int, db: Session = Depends(get_db)):
 def place_order(order_request: OrderRequest, db: Session = Depends(get_db)):
     """Place an order using a preset"""
     
-    # Get preset
     preset = db.query(Preset).filter(Preset.id == order_request.preset_id).first()
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found")
     
-    # Get user
     user = db.query(User).filter(User.id == preset.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Check cooldown
+    """Validating cooldown period explicitly on the backend ensures rate limits are enforced universally, even if frontend checks are bypassed."""
     last_order = db.query(OrderHistory).filter(
         OrderHistory.phone_number == user.phone_number
     ).order_by(OrderHistory.ordered_at.desc()).first()
@@ -319,16 +304,12 @@ def place_order(order_request: OrderRequest, db: Session = Depends(get_db)):
                 cooldown_remaining=remaining_seconds
             )
     
-    # Run automation
-    # automation.run_order_automation expects a list of dicts or strings
-    # Our parse_items_json returns a list of ItemWithModifiers objects
-    # Let's convert them to dicts for run_order_automation
+    """Converting strongly typed Pydantic objects back to dicts, as the automation library explicitly operates on dictionaries."""
     items_objects = parse_items_json(preset.items_json)
     items = [{"name": item.name, "modifiers": item.modifiers} for item in items_objects]
 
     result = run_order_automation(user.name, user.phone_number, items, location_name=preset.location_name)
     
-    # Record order attempt
     order_history = OrderHistory(
         preset_id=preset.id,
         phone_number=user.phone_number,

@@ -72,11 +72,11 @@ def run_order_automation(name: str, phone_number: str, items: list, location_nam
             page = context.new_page()
             
             try:
-                # 1. Navigate
+                """Wait for network idle before taking action to prevent interacting with elements that haven't fully loaded."""
                 page.goto(TARGET_URL, wait_until="networkidle", timeout=TIMEOUT)
                 time.sleep(3)
 
-                # 2. Pickup Selection
+                """Check for generic selectors and ID-based selectors to ensure forward-compatibility with UI changes."""
                 if page.locator("button#go-to-all-locations-button").count() > 0:
                     page.locator("button#go-to-all-locations-button").first.click()
                     time.sleep(2)
@@ -84,7 +84,7 @@ def run_order_automation(name: str, phone_number: str, items: list, location_nam
                     page.locator("button:has-text('All Pickup Locations')").first.click()
                     time.sleep(2)
 
-                # 3. Location Selection (FIXED)
+                """Bidirectional check allows us to match the location name regardless of partial matching or extra whitespaces in the source."""
                 location_selected = False
                 if location_name:
                     logger.info(f"Searching for location: '{location_name}'")
@@ -96,7 +96,6 @@ def run_order_automation(name: str, phone_number: str, items: list, location_nam
                         loc_text_raw = loc_item.inner_text()
                         norm_loc = normalize_text(loc_text_raw)
                         
-                        # FIXED: Bidirectional check (Target in Site OR Site in Target)
                         if norm_target in norm_loc or norm_loc in norm_target:
                             logger.info(f"✓ Found location match: '{loc_text_raw.splitlines()[0]}'")
                             loc_item.click()
@@ -107,21 +106,20 @@ def run_order_automation(name: str, phone_number: str, items: list, location_nam
                         logger.warning(f"❌ Could not find location '{location_name}'. Failing gracefully.")
                         return {"success": False, "message": f"Location '{location_name}' not found. Check spelling."}
                 
-                # If no location name provided, fallback to first
+                """Fallback mechanism to avoid breaking the automation if a specific location is omitted or missing."""
                 if not location_selected and not location_name:
                     first_loc = page.locator("li[id^='location']").first
                     if first_loc.count() > 0:
                         logger.info(f"Selecting default location: {first_loc.inner_text().splitlines()[0]}")
                         first_loc.click()
 
-                # Wait for menu
+                """Explicit wait ensures the menu DOM elements are fully populated before iteration."""
                 page.wait_for_selector("li.item[data-title]", timeout=15000)
                 time.sleep(2)
 
-                # 4. Add Items
                 items_added = 0
 
-                # OPTIMIZATION: Fetch all menu items once before the loop
+                """Fetch all menu items once before the loop to avoid redundant DOM queries, reducing Playwright overhead."""
                 all_menu_items = page.locator("li.item[data-title]").all()
 
                 for item_data in items:
@@ -164,7 +162,7 @@ def run_order_automation(name: str, phone_number: str, items: list, location_nam
                 if items_added == 0:
                     return {"success": False, "message": "No items added to cart."}
 
-                # 5. Checkout
+                """Using multiple element location strategies for checkout buttons guarantees resilience against A/B testing or site updates."""
                 logger.info("Proceeding to checkout...")
                 if page.locator("a#cart").count() > 0: page.locator("a#cart").click()
                 else: page.locator("[id='cart']").click()

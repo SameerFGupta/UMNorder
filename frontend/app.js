@@ -1,60 +1,54 @@
-const API_BASE = "https://hyperangelic-zariyah-nonparentally.ngrok-free.dev";
+const API_BASE = "http://localhost:8000";
 
-// Tab switching
-function showTab(tabName, clickedButton = null) {
-    // Hide all tabs
+/* Centralizing tab management to a single function to avoid desync between active tab content and button state. */
+function show_tab(tab_name, clicked_button = null) {
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
     });
     
-    // Remove active class from all buttons
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.classList.remove('active');
     });
     
-    // Show selected tab
-    document.getElementById(`${tabName}-tab`).classList.add('active');
+    document.getElementById(`${tab_name}-tab`).classList.add('active');
     
-    // Activate button - use clickedButton if provided, otherwise find by tab name
-    if (clickedButton) {
-        clickedButton.classList.add('active');
+    if (clicked_button) {
+        clicked_button.classList.add('active');
     } else {
-        // Find the button that corresponds to this tab
         const buttons = document.querySelectorAll('.tab-button');
         buttons.forEach(btn => {
-            const btnText = btn.textContent.toLowerCase();
-            if ((tabName === 'presets' && btnText.includes('presets')) ||
-                (tabName === 'create' && btnText.includes('create')) ||
-                (tabName === 'users' && btnText.includes('users'))) {
+            const btn_text = btn.textContent.toLowerCase();
+            if ((tab_name === 'presets' && btn_text.includes('presets')) ||
+                (tab_name === 'create' && btn_text.includes('create')) ||
+                (tab_name === 'users' && btn_text.includes('users'))) {
                 btn.classList.add('active');
             }
         });
     }
     
-    // Load data if needed
-    if (tabName === 'presets') {
-        loadPresets();
-    } else if (tabName === 'users') {
-        loadUsers();
+    if (tab_name === 'presets') {
+        load_presets();
+    } else if (tab_name === 'users') {
+        load_users();
     }
 }
 
-// Helper to escape HTML and prevent XSS
-function escapeHTML(str) {
+/* Using a disjointed DOM element to properly escape user-provided strings helps mitigate XSS vulnerabilities. */
+function escape_html(str) {
     if (!str) return '';
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
 }
 
-// Load and display presets
-async function loadPresets() {
-    const presetsList = document.getElementById('presets-list');
-    presetsList.textContent = '';
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'loading';
-    loadingDiv.textContent = 'Loading presets...';
-    presetsList.appendChild(loadingDiv);
+/* Fetching presets independently simplifies the state management by pulling directly from the source of truth on navigation. */
+async function load_presets() {
+    const presets_list = document.getElementById('presets-list');
+    presets_list.textContent = '';
+    const loading_div = document.createElement('div');
+    loading_div.className = 'loading';
+    loading_div.textContent = 'Loading presets...';
+    presets_list.appendChild(loading_div);
     
     try {
         const response = await fetch(`${API_BASE}/api/presets`, {
@@ -64,25 +58,24 @@ async function loadPresets() {
         
         const presets = await response.json();
         
-        presetsList.textContent = '';
+        presets_list.textContent = '';
         if (presets.length === 0) {
-            const noPresetsDiv = document.createElement('div');
-            noPresetsDiv.className = 'loading';
-            noPresetsDiv.textContent = 'No presets yet. Create one to get started!';
-            presetsList.appendChild(noPresetsDiv);
+            const no_presets_div = document.createElement('div');
+            no_presets_div.className = 'loading';
+            no_presets_div.textContent = 'No presets yet. Create one to get started!';
+            presets_list.appendChild(no_presets_div);
             return;
         }
         
-        // Load users to get names
-        const usersResponse = await fetch(`${API_BASE}/api/users`, {
+        const users_response = await fetch(`${API_BASE}/api/users`, {
             headers: { 'ngrok-skip-browser-warning': 'true' }
         });
-        const users = await usersResponse.json();
-        const userMap = {};
-        users.forEach(u => userMap[u.id] = u);
+        const users = await users_response.json();
+        const user_map = {};
+        users.forEach(u => user_map[u.id] = u);
         
         presets.forEach(preset => {
-            const user = userMap[preset.user_id] || { name: 'Unknown', phone_number: 'N/A' };
+            const user = user_map[preset.user_id] || { name: 'Unknown', phone_number: 'N/A' };
             const card = document.createElement('div');
             card.className = 'preset-card';
 
@@ -90,21 +83,19 @@ async function loadPresets() {
             h3.textContent = preset.preset_name;
             card.appendChild(h3);
 
-            const itemsDiv = document.createElement('div');
-            itemsDiv.className = 'items';
-            const itemsStrong = document.createElement('strong');
-            itemsStrong.textContent = 'Items:';
-            itemsDiv.appendChild(itemsStrong);
+            const items_div = document.createElement('div');
+            items_div.className = 'items';
+            const items_strong = document.createElement('strong');
+            items_strong.textContent = 'Items:';
+            items_div.appendChild(items_strong);
             
             const ul = document.createElement('ul');
             if (preset.items && preset.items.length > 0) {
                 preset.items.forEach(item => {
                     const li = document.createElement('li');
                     if (typeof item === 'string') {
-                        // Old format
                         li.textContent = item;
                     } else {
-                        // New format with modifiers
                         li.textContent = item.name;
                         if (item.modifiers && item.modifiers.length > 0) {
                             const span = document.createElement('span');
@@ -117,64 +108,64 @@ async function loadPresets() {
                     ul.appendChild(li);
                 });
             }
-            itemsDiv.appendChild(ul);
-            card.appendChild(itemsDiv);
+            items_div.appendChild(ul);
+            card.appendChild(items_div);
 
-            const userDiv = document.createElement('div');
-            userDiv.style.marginBottom = '10px';
-            userDiv.style.fontSize = '0.9rem';
-            userDiv.style.color = '#666';
+            const user_div = document.createElement('div');
+            user_div.style.marginBottom = '10px';
+            user_div.style.fontSize = '0.9rem';
+            user_div.style.color = '#666';
 
-            const userStrong = document.createElement('strong');
-            userStrong.textContent = 'User:';
-            userDiv.appendChild(userStrong);
-            userDiv.appendChild(document.createTextNode(` ${user.name} (${user.phone_number})`));
-            userDiv.appendChild(document.createElement('br'));
+            const user_strong = document.createElement('strong');
+            user_strong.textContent = 'User:';
+            user_div.appendChild(user_strong);
+            user_div.appendChild(document.createTextNode(` ${user.name} (${user.phone_number})`));
+            user_div.appendChild(document.createElement('br'));
 
-            const locationStrong = document.createElement('strong');
-            locationStrong.textContent = 'Location:';
-            userDiv.appendChild(locationStrong);
+            const location_strong = document.createElement('strong');
+            location_strong.textContent = 'Location:';
+            user_div.appendChild(location_strong);
             if (preset.location_name) {
-                userDiv.appendChild(document.createTextNode(` ${preset.location_name}`));
+                user_div.appendChild(document.createTextNode(` ${preset.location_name}`));
             } else {
                 const em = document.createElement('em');
                 em.textContent = ' Any available';
-                userDiv.appendChild(em);
+                user_div.appendChild(em);
             }
-            card.appendChild(userDiv);
+            card.appendChild(user_div);
 
-            const orderBtn = document.createElement('button');
-            orderBtn.className = 'btn btn-order';
-            orderBtn.textContent = 'ORDER NOW';
-            orderBtn.onclick = (e) => placeOrder(preset.id, preset.preset_name, e.target);
-            card.appendChild(orderBtn);
+            const order_btn = document.createElement('button');
+            order_btn.className = 'btn btn-order';
+            order_btn.textContent = 'ORDER NOW';
+            order_btn.onclick = (e) => place_order(preset.id, preset.preset_name, e.target);
+            card.appendChild(order_btn);
             
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'btn btn-delete';
-            deleteBtn.textContent = 'Delete Preset';
-            deleteBtn.onclick = () => deletePreset(preset.id);
-            card.appendChild(deleteBtn);
+            const delete_btn = document.createElement('button');
+            delete_btn.className = 'btn btn-delete';
+            delete_btn.textContent = 'Delete Preset';
+            delete_btn.onclick = () => delete_preset(preset.id);
+            card.appendChild(delete_btn);
 
-            presetsList.appendChild(card);
+            presets_list.appendChild(card);
         });
     } catch (error) {
-        presetsList.textContent = '';
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'loading';
-        errorDiv.style.color = '#ff6b6b';
-        errorDiv.textContent = `Error loading presets: ${error.message}`;
-        presetsList.appendChild(errorDiv);
+        presets_list.textContent = '';
+        const error_div = document.createElement('div');
+        error_div.className = 'loading';
+        error_div.style.color = '#ff6b6b';
+        error_div.textContent = `Error loading presets: ${error.message}`;
+        presets_list.appendChild(error_div);
     }
 }
 
-// Load and display users
-async function loadUsers() {
-    const usersList = document.getElementById('users-list');
-    usersList.textContent = '';
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'loading';
-    loadingDiv.textContent = 'Loading users...';
-    usersList.appendChild(loadingDiv);
+/* Isolating user loading prevents redundant data caching, ensuring deleted or edited users properly reflect globally. */
+async function load_users() {
+    const users_list = document.getElementById('users-list');
+    users_list.textContent = '';
+    const loading_div = document.createElement('div');
+    loading_div.className = 'loading';
+    loading_div.textContent = 'Loading users...';
+    users_list.appendChild(loading_div);
     
     try {
         const response = await fetch(`${API_BASE}/api/users`, {
@@ -184,46 +175,46 @@ async function loadUsers() {
         
         const users = await response.json();
         
-        usersList.textContent = '';
+        users_list.textContent = '';
         if (users.length === 0) {
-            const noUsersDiv = document.createElement('div');
-            noUsersDiv.className = 'loading';
-            noUsersDiv.textContent = 'No users yet. Add one to get started!';
-            usersList.appendChild(noUsersDiv);
+            const no_users_div = document.createElement('div');
+            no_users_div.className = 'loading';
+            no_users_div.textContent = 'No users yet. Add one to get started!';
+            users_list.appendChild(no_users_div);
             return;
         }
         
         users.forEach(user => {
             const card = document.createElement('div');
             card.className = 'user-card';
-            const innerDiv = document.createElement('div');
+            const inner_div = document.createElement('div');
 
             const strong = document.createElement('strong');
             strong.textContent = user.name;
-            innerDiv.appendChild(strong);
-            innerDiv.appendChild(document.createElement('br'));
+            inner_div.appendChild(strong);
+            inner_div.appendChild(document.createElement('br'));
 
             const span = document.createElement('span');
             span.style.color = '#666';
             span.textContent = user.phone_number;
-            innerDiv.appendChild(span);
+            inner_div.appendChild(span);
 
-            card.appendChild(innerDiv);
-            usersList.appendChild(card);
+            card.appendChild(inner_div);
+            users_list.appendChild(card);
         });
     } catch (error) {
-        usersList.textContent = '';
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'loading';
-        errorDiv.style.color = '#ff6b6b';
-        errorDiv.textContent = `Error loading users: ${error.message}`;
-        usersList.appendChild(errorDiv);
+        users_list.textContent = '';
+        const error_div = document.createElement('div');
+        error_div.className = 'loading';
+        error_div.style.color = '#ff6b6b';
+        error_div.textContent = `Error loading users: ${error.message}`;
+        users_list.appendChild(error_div);
     }
 }
 
-// Load users for dropdown
-async function loadUsersForDropdown() {
-    const userSelect = document.getElementById('user-select');
+/* Decoupling dropdown updates from load_users ensures forms can re-render without affecting the primary display tables. */
+async function load_users_for_dropdown() {
+    const user_select = document.getElementById('user-select');
     
     try {
         const response = await fetch(`${API_BASE}/api/users`, {
@@ -233,24 +224,23 @@ async function loadUsersForDropdown() {
         
         const users = await response.json();
         
-        userSelect.textContent = '';
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = 'Select a user...';
-        userSelect.appendChild(defaultOption);
+        user_select.textContent = '';
+        const default_option = document.createElement('option');
+        default_option.value = '';
+        default_option.textContent = 'Select a user...';
+        user_select.appendChild(default_option);
 
         users.forEach(user => {
             const option = document.createElement('option');
             option.value = user.id;
             option.textContent = `${user.name} (${user.phone_number})`;
-            userSelect.appendChild(option);
+            user_select.appendChild(option);
         });
     } catch (error) {
         console.error('Error loading users:', error);
     }
 }
 
-// Create user
 document.getElementById('create-user-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -272,74 +262,71 @@ document.getElementById('create-user-form').addEventListener('submit', async (e)
             throw new Error(error.detail || 'Failed to create user');
         }
         
-        showStatus('User created successfully!', 'success');
+        show_status('User created successfully!', 'success');
         document.getElementById('create-user-form').reset();
-        loadUsers();
-        loadUsersForDropdown();
+        load_users();
+        load_users_for_dropdown();
     } catch (error) {
-        showStatus(`Error: ${error.message}`, 'error');
+        show_status(`Error: ${error.message}`, 'error');
     }
 });
 
-// FIX: Add item row to form with correct Dark Mode visibility
-function addItemRow(itemName = '', modifiers = []) {
+/* Dynamically generating DOM elements for list inputs avoids template strings, which can inadvertently introduce DOM XSS injections. */
+function add_item_row(item_name = '', modifiers = []) {
     const container = document.getElementById('items-container');
-    const itemIndex = container.children.length;
-    const itemDiv = document.createElement('div');
-    itemDiv.className = 'item-row';
+    const item_index = container.children.length;
+    const item_div = document.createElement('div');
+    item_div.className = 'item-row';
     
-    // Header row
-    const headerDiv = document.createElement('div');
-    headerDiv.style.display = 'flex';
-    headerDiv.style.justifyContent = 'space-between';
-    headerDiv.style.alignItems = 'center';
-    headerDiv.style.marginBottom = '15px';
+    const header_div = document.createElement('div');
+    header_div.style.display = 'flex';
+    header_div.style.justifyContent = 'space-between';
+    header_div.style.alignItems = 'center';
+    header_div.style.marginBottom = '15px';
 
     const strong = document.createElement('strong');
-    strong.textContent = `Item ${itemIndex + 1}`;
-    headerDiv.appendChild(strong);
+    strong.textContent = `Item ${item_index + 1}`;
+    header_div.appendChild(strong);
 
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'btn btn-sm';
-    removeBtn.textContent = 'Remove';
-    removeBtn.onclick = (e) => removeItemRow(e.target);
-    headerDiv.appendChild(removeBtn);
-    itemDiv.appendChild(headerDiv);
+    const remove_btn = document.createElement('button');
+    remove_btn.type = 'button';
+    remove_btn.className = 'btn btn-sm';
+    remove_btn.textContent = 'Remove';
+    remove_btn.onclick = (e) => remove_item_row(e.target);
+    header_div.appendChild(remove_btn);
+    item_div.appendChild(header_div);
 
-    // Item Name group
-    const nameGroup = document.createElement('div');
-    nameGroup.className = 'form-group';
-    nameGroup.style.marginBottom = '15px';
+    const name_group = document.createElement('div');
+    name_group.className = 'form-group';
+    name_group.style.marginBottom = '15px';
 
-    const nameLabel = document.createElement('label');
-    nameLabel.textContent = 'Item Name:';
-    nameGroup.appendChild(nameLabel);
+    const name_label = document.createElement('label');
+    name_label.textContent = 'Item Name:';
+    name_group.appendChild(name_label);
 
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.className = 'item-name';
-    nameInput.placeholder = 'e.g., Hamburger';
-    nameInput.value = itemName;
-    nameInput.required = true;
-    nameGroup.appendChild(nameInput);
-    itemDiv.appendChild(nameGroup);
+    const name_input = document.createElement('input');
+    name_input.type = 'text';
+    name_input.className = 'item-name';
+    name_input.placeholder = 'e.g., Hamburger';
+    name_input.value = item_name;
+    name_input.required = true;
+    name_group.appendChild(name_input);
+    item_div.appendChild(name_group);
 
-    // Modifiers group
-    const modGroup = document.createElement('div');
-    modGroup.className = 'form-group';
-    modGroup.style.marginBottom = '0';
+    const mod_group = document.createElement('div');
+    mod_group.className = 'form-group';
+    mod_group.style.marginBottom = '0';
 
-    const modLabel = document.createElement('label');
-    modLabel.textContent = 'Modifiers (comma-separated):';
-    modGroup.appendChild(modLabel);
+    const mod_label = document.createElement('label');
+    mod_label.textContent = 'Modifiers (comma-separated):';
+    mod_group.appendChild(mod_label);
 
-    const modInput = document.createElement('input');
-    modInput.type = 'text';
-    modInput.className = 'item-modifiers';
-    modInput.placeholder = 'e.g., Bun, American Cheese';
-    modInput.value = modifiers.join(', ');
-    modGroup.appendChild(modInput);
+    const mod_input = document.createElement('input');
+    mod_input.type = 'text';
+    mod_input.className = 'item-modifiers';
+    mod_input.placeholder = 'e.g., Bun, American Cheese';
+    mod_input.value = modifiers.join(', ');
+    mod_group.appendChild(mod_input);
 
     const small = document.createElement('small');
     small.style.display = 'block';
@@ -347,51 +334,48 @@ function addItemRow(itemName = '', modifiers = []) {
     small.style.marginTop = '8px';
     small.style.fontSize = '0.85rem';
     small.textContent = 'Enter modifier names exactly as they appear';
-    modGroup.appendChild(small);
-    itemDiv.appendChild(modGroup);
+    mod_group.appendChild(small);
+    item_div.appendChild(mod_group);
 
-    container.appendChild(itemDiv);
+    container.appendChild(item_div);
 }
 
-// Remove item row
-function removeItemRow(button) {
+/* Removing closest parent explicitly correctly bounds deletion behavior so adjacent items aren't accidentally discarded. */
+function remove_item_row(button) {
     button.closest('.item-row').remove();
-    // Update item numbers
     const container = document.getElementById('items-container');
     Array.from(container.children).forEach((row, index) => {
         row.querySelector('strong').textContent = `Item ${index + 1}`;
     });
 }
 
-// Create preset
 document.getElementById('create-preset-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const userId = parseInt(document.getElementById('user-select').value);
-    const presetName = document.getElementById('preset-name').value;
-    const locationName = document.getElementById('location-select').value || null;
+    const user_id = parseInt(document.getElementById('user-select').value);
+    const preset_name = document.getElementById('preset-name').value;
+    const location_name = document.getElementById('location-select').value || null;
     
-    // Collect items with modifiers
-    const itemRows = document.querySelectorAll('.item-row');
+    const item_rows = document.querySelectorAll('.item-row');
     const items = [];
     
-    itemRows.forEach(row => {
-        const itemName = row.querySelector('.item-name').value.trim();
-        const modifiersText = row.querySelector('.item-modifiers').value.trim();
+    item_rows.forEach(row => {
+        const item_name = row.querySelector('.item-name').value.trim();
+        const modifiers_text = row.querySelector('.item-modifiers').value.trim();
         
-        if (itemName) {
-            const modifiers = modifiersText
-                ? modifiersText.split(',').map(m => m.trim()).filter(m => m.length > 0)
+        if (item_name) {
+            const modifiers = modifiers_text
+                ? modifiers_text.split(',').map(m => m.trim()).filter(m => m.length > 0)
                 : [];
             items.push({
-                name: itemName,
+                name: item_name,
                 modifiers: modifiers
             });
         }
     });
     
     if (items.length === 0) {
-        showStatus('Please add at least one item', 'error');
+        show_status('Please add at least one item', 'error');
         return;
     }
     
@@ -403,10 +387,10 @@ document.getElementById('create-preset-form').addEventListener('submit', async (
                 'ngrok-skip-browser-warning': 'true',
             },
             body: JSON.stringify({
-                user_id: userId,
-                preset_name: presetName,
+                user_id: user_id,
+                preset_name: preset_name,
                 items: items,
-                location_name: locationName,
+                location_name: location_name,
             }),
         });
         
@@ -415,31 +399,30 @@ document.getElementById('create-preset-form').addEventListener('submit', async (
             throw new Error(error.detail || 'Failed to create preset');
         }
         
-        showStatus('Preset created successfully!', 'success');
+        show_status('Preset created successfully!', 'success');
         document.getElementById('create-preset-form').reset();
         document.getElementById('items-container').textContent = '';
-        showTab('presets');
-        loadPresets();
+        show_tab('presets');
+        load_presets();
     } catch (error) {
-        showStatus(`Error: ${error.message}`, 'error');
+        show_status(`Error: ${error.message}`, 'error');
     }
 });
 
-// Place order
-async function placeOrder(presetId, presetName, buttonElement = null) {
-    const button = buttonElement || (typeof event !== 'undefined' && event?.target) || document.querySelector(`button[onclick*="placeOrder(${presetId}"]`);
+/* Managing button state directly guarantees we prevent duplicate submissions during potentially long automated tasks. */
+async function place_order(preset_id, preset_name, button_element = null) {
+    const button = button_element || (typeof event !== 'undefined' && event?.target) || document.querySelector(`button[onclick*="place_order(${preset_id}"]`);
     if (!button) {
-        showStatus('Error: Could not find order button', 'error');
+        show_status('Error: Could not find order button', 'error');
         return;
     }
-    const originalText = button.textContent;
+    const original_text = button.textContent;
     
-    // Disable button and show processing
     button.disabled = true;
     button.textContent = '⏳ Processing...';
     button.classList.add('btn-processing');
     
-    showStatus(`Placing order for "${presetName}"...`, 'processing');
+    show_status(`Placing order for "${preset_name}"...`, 'processing');
     
     try {
         const response = await fetch(`${API_BASE}/api/order`, {
@@ -448,13 +431,13 @@ async function placeOrder(presetId, presetName, buttonElement = null) {
                 'Content-Type': 'application/json',
                 'ngrok-skip-browser-warning': 'true',
             },
-            body: JSON.stringify({ preset_id: presetId }),
+            body: JSON.stringify({ preset_id: preset_id }),
         });
         
         const result = await response.json();
         
         if (result.success) {
-            showStatus(`✅ ${result.message}`, 'success');
+            show_status(`✅ ${result.message}`, 'success');
         } else {
             let message = `❌ ${result.message}`;
             if (result.cooldown_remaining) {
@@ -462,26 +445,25 @@ async function placeOrder(presetId, presetName, buttonElement = null) {
                 const seconds = result.cooldown_remaining % 60;
                 message += ` (${minutes}m ${seconds}s remaining)`;
             }
-            showStatus(message, 'error');
+            show_status(message, 'error');
         }
     } catch (error) {
-        showStatus(`❌ Error: ${error.message}`, 'error');
+        show_status(`❌ Error: ${error.message}`, 'error');
     } finally {
-        // Re-enable button
         button.disabled = false;
-        button.textContent = originalText;
+        button.textContent = original_text;
         button.classList.remove('btn-processing');
     }
 }
 
-// Delete preset
-async function deletePreset(presetId) {
+/* Guard clauses (like confirm dialogs) immediately abort operations, safely restricting destructive endpoints. */
+async function delete_preset(preset_id) {
     if (!confirm('Are you sure you want to delete this preset?')) {
         return;
     }
     
     try {
-        const response = await fetch(`${API_BASE}/api/presets/${presetId}`, {
+        const response = await fetch(`${API_BASE}/api/presets/${preset_id}`, {
             method: 'DELETE',
             headers: { 'ngrok-skip-browser-warning': 'true' }
         });
@@ -490,55 +472,50 @@ async function deletePreset(presetId) {
             throw new Error('Failed to delete preset');
         }
         
-        showStatus('Preset deleted successfully!', 'success');
-        loadPresets();
+        show_status('Preset deleted successfully!', 'success');
+        load_presets();
     } catch (error) {
-        showStatus(`Error: ${error.message}`, 'error');
+        show_status(`Error: ${error.message}`, 'error');
     }
 }
 
-// Show status modal
-function showStatus(message, type) {
+/* Centralizing status updates within a single modal ensures uniformity in error or progress reporting UI elements. */
+function show_status(message, type) {
     const modal = document.getElementById('status-modal');
-    const messageDiv = document.getElementById('status-message');
+    const message_div = document.getElementById('status-message');
     
-    messageDiv.className = `status-${type}`;
-    messageDiv.textContent = message;
+    message_div.className = `status-${type}`;
+    message_div.textContent = message;
     
     if (type === 'processing') {
         const spinner = document.createElement('div');
         spinner.className = 'spinner';
-        messageDiv.appendChild(spinner);
+        message_div.appendChild(spinner);
     }
     
     modal.style.display = 'block';
     
-    // Auto-close after 5 seconds for success/error (not processing)
     if (type !== 'processing') {
         setTimeout(() => {
-            closeModal();
+            close_modal();
         }, 5000);
     }
 }
 
-// Close modal
-function closeModal() {
+function close_modal() {
     document.getElementById('status-modal').style.display = 'none';
 }
 
-// Close modal when clicking outside
 window.onclick = function(event) {
     const modal = document.getElementById('status-modal');
     if (event.target === modal) {
-        closeModal();
+        close_modal();
     }
 }
 
-// Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    loadPresets();
-    loadUsers();
-    loadUsersForDropdown();
-    // Add one empty item row by default
-    addItemRow();
+    load_presets();
+    load_users();
+    load_users_for_dropdown();
+    add_item_row();
 });

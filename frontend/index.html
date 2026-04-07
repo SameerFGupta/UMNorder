@@ -11,7 +11,7 @@
     
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
     <div class="background-glow"></div>
@@ -29,13 +29,13 @@
 
         <div class="glass-panel nav-panel">
             <div class="tabs">
-                <button class="tab-button active" onclick="showTab('presets', this)">
+                <button class="tab-button active" onclick="show_tab('presets', this)">
                     <i class="ph-bold ph-list-dashes"></i> My Presets
                 </button>
-                <button class="tab-button" onclick="showTab('create', this)">
+                <button class="tab-button" onclick="show_tab('create', this)">
                     <i class="ph-bold ph-plus-circle"></i> New Preset
                 </button>
-                <button class="tab-button" onclick="showTab('users', this)">
+                <button class="tab-button" onclick="show_tab('users', this)">
                     <i class="ph-bold ph-users"></i> Users
                 </button>
             </div>
@@ -100,7 +100,7 @@
                         </div>
                         <div id="items-container">
                             </div>
-                        <button type="button" class="btn btn-secondary dashed-btn" onclick="addItemRow()">
+                        <button type="button" class="btn btn-secondary dashed-btn" onclick="add_item_row()">
                             <i class="ph-bold ph-plus"></i> Add Another Item
                         </button>
                     </div>
@@ -151,12 +151,12 @@
 
         <div id="status-modal" class="modal">
             <div class="modal-content glass-panel">
-                <span class="close" onclick="closeModal()"><i class="ph-bold ph-x"></i></span>
+                <span class="close" onclick="close_modal()"><i class="ph-bold ph-x"></i></span>
                 <div id="status-message"></div>
             </div>
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="/static/app.js"></script>
 </body>
 </html>
