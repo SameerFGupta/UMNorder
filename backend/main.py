@@ -17,6 +17,7 @@ from sqlalchemy.sql import func
 
 from backend.automation import run_order_automation
 from backend.config import SQLALCHEMY_DATABASE_URL
+from backend.helpers import parse_items_json
 import logging
 
 # Database setup
@@ -170,27 +171,6 @@ class OrderResponse(BaseModel):
 
 # Helper functions
 
-def parse_items_json(items_json: str) -> List[ItemWithModifiers]:
-    """
-    Parse the items_json string from the database into a list of ItemWithModifiers objects.
-    Handles both old format (list of strings) and new format (list of dicts).
-    """
-    if not items_json:
-        return []
-
-    items_list = json.loads(items_json)
-    if not items_list:
-        return []
-
-    # Handle both old format (list of strings) and new format (list of dicts)
-    if isinstance(items_list[0], str):
-        # Old format: convert to new format
-        return [ItemWithModifiers(name=item, modifiers=[]) for item in items_list]
-    else:
-        # New format
-        return [ItemWithModifiers(name=item["name"], modifiers=item.get("modifiers", [])) for item in items_list]
-
-
 def check_user_cooldown(db: Session, phone_number: str) -> Optional[OrderResponse]:
     """Check if the user is on cooldown, return OrderResponse if so, else None."""
     last_order = db.query(OrderHistory).filter(
@@ -207,10 +187,6 @@ def check_user_cooldown(db: Session, phone_number: str) -> Optional[OrderRespons
                 cooldown_remaining=remaining_seconds
             )
     return None
-
-def format_items_for_automation(items_objects: List[ItemWithModifiers]) -> List[dict]:
-    """Convert a list of ItemWithModifiers to a list of dicts for the automation script."""
-    return [{"name": item.name, "modifiers": item.modifiers} for item in items_objects]
 
 
 # API Endpoints
@@ -257,7 +233,8 @@ def create_preset(preset: PresetCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_preset)
     # Parse back to ItemWithModifiers objects
-    items_objects = parse_items_json(db_preset.items_json)
+    items_dicts = parse_items_json(db_preset.items_json)
+    items_objects = [ItemWithModifiers(**item) for item in items_dicts]
     return PresetResponse(
         id=db_preset.id,
         user_id=db_preset.user_id,
@@ -289,7 +266,8 @@ def get_preset(preset_id: int, db: Session = Depends(get_db)):
     preset = db.query(Preset).filter(Preset.id == preset_id).first()
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found")
-    items_objects = parse_items_json(preset.items_json)
+    items_dicts = parse_items_json(preset.items_json)
+    items_objects = [ItemWithModifiers(**item) for item in items_dicts]
     return PresetResponse(
         id=preset.id,
         user_id=preset.user_id,
@@ -330,8 +308,7 @@ def place_order(order_request: OrderRequest, db: Session = Depends(get_db)):
         return cooldown_response
     
     # Run automation
-    items_objects = parse_items_json(preset.items_json)
-    items = format_items_for_automation(items_objects)
+    items = parse_items_json(preset.items_json)
 
     result = run_order_automation(user.name, user.phone_number, items, location_name=preset.location_name)
     
