@@ -120,12 +120,15 @@ def run_order_automation(name: str, phone_number: str, items: list, location_nam
 
                 # 4. Add Items
                 items_added = 0
+
+                # OPTIMIZATION: Fetch all menu items once before the loop
+                all_menu_items = page.locator("li.item[data-title]").all()
+
                 for item_data in items:
                     item_name = item_data.get("name", "") if isinstance(item_data, dict) else str(item_data)
                     item_modifiers = item_data.get("modifiers", []) if isinstance(item_data, dict) else []
 
                     logger.info(f"Looking for item: '{item_name}'")
-                    all_menu_items = page.locator("li.item[data-title]").all()
                     target_item = None
                     norm_target_name = normalize_text(item_name)
                     
