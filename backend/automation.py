@@ -142,7 +142,10 @@ def add_items_to_cart(page, items):
         if target_item:
             target_item.scroll_into_view_if_needed()
             target_item.click(force=True)
-            time.sleep(2)
+            try:
+                page.wait_for_selector('#product-modal', state='visible', timeout=2000)
+            except Exception:
+                pass
 
             if page.locator('#product-modal').is_visible():
                 select_modifiers_in_modal(page, item_name, item_modifiers)
