@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 import os
 import traceback
+import json
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, text, Column, Integer, String, DateTime, Boolean, Text
 from sqlalchemy.ext.declarative import declarative_base
@@ -168,6 +169,29 @@ class OrderResponse(BaseModel):
     cooldown_remaining: Optional[int] = None  # seconds remaining
 
 
+# Helper functions
+
+def parse_items_json(items_json: str) -> List[ItemWithModifiers]:
+    """
+    Parse the items_json string from the database into a list of ItemWithModifiers objects.
+    Handles both old format (list of strings) and new format (list of dicts).
+    """
+    if not items_json:
+        return []
+
+    items_list = json.loads(items_json)
+    if not items_list:
+        return []
+
+    # Handle both old format (list of strings) and new format (list of dicts)
+    if isinstance(items_list[0], str):
+        # Old format: convert to new format
+        return [ItemWithModifiers(name=item, modifiers=[]) for item in items_list]
+    else:
+        # New format
+        return [ItemWithModifiers(name=item["name"], modifiers=item.get("modifiers", [])) for item in items_list]
+
+
 # API Endpoints
 
 @app.get("/", response_class=HTMLResponse)
@@ -200,7 +224,6 @@ def get_users(db: Session = Depends(get_db)):
 @app.post("/api/presets", response_model=PresetResponse)
 def create_preset(preset: PresetCreate, db: Session = Depends(get_db)):
     """Create a new order preset"""
-    import json
     # Convert items to JSON (list of dicts with name and modifiers)
     items_data = [{"name": item.name, "modifiers": item.modifiers} for item in preset.items]
     db_preset = Preset(
@@ -213,8 +236,7 @@ def create_preset(preset: PresetCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_preset)
     # Parse back to ItemWithModifiers objects
-    items_list = json.loads(db_preset.items_json)
-    items_objects = [ItemWithModifiers(name=item["name"], modifiers=item.get("modifiers", [])) for item in items_list]
+    items_objects = parse_items_json(db_preset.items_json)
     return PresetResponse(
         id=db_preset.id,
         user_id=db_preset.user_id,
@@ -227,18 +249,10 @@ def create_preset(preset: PresetCreate, db: Session = Depends(get_db)):
 @app.get("/api/presets", response_model=List[PresetResponse])
 def get_presets(db: Session = Depends(get_db)):
     """Get all presets"""
-    import json
     presets = db.query(Preset).all()
     result = []
     for p in presets:
-        items_list = json.loads(p.items_json)
-        # Handle both old format (list of strings) and new format (list of dicts)
-        if items_list and isinstance(items_list[0], str):
-            # Old format: convert to new format
-            items_objects = [ItemWithModifiers(name=item, modifiers=[]) for item in items_list]
-        else:
-            # New format
-            items_objects = [ItemWithModifiers(name=item["name"], modifiers=item.get("modifiers", [])) for item in items_list]
+        items_objects = parse_items_json(p.items_json)
         result.append(PresetResponse(
             id=p.id,
             user_id=p.user_id,
@@ -252,18 +266,10 @@ def get_presets(db: Session = Depends(get_db)):
 @app.get("/api/presets/{preset_id}", response_model=PresetResponse)
 def get_preset(preset_id: int, db: Session = Depends(get_db)):
     """Get a specific preset"""
-    import json
     preset = db.query(Preset).filter(Preset.id == preset_id).first()
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found")
-    items_list = json.loads(preset.items_json)
-    # Handle both old format (list of strings) and new format (list of dicts)
-    if items_list and isinstance(items_list[0], str):
-        # Old format: convert to new format
-        items_objects = [ItemWithModifiers(name=item, modifiers=[]) for item in items_list]
-    else:
-        # New format
-        items_objects = [ItemWithModifiers(name=item["name"], modifiers=item.get("modifiers", [])) for item in items_list]
+    items_objects = parse_items_json(preset.items_json)
     return PresetResponse(
         id=preset.id,
         user_id=preset.user_id,
@@ -287,7 +293,6 @@ def delete_preset(preset_id: int, db: Session = Depends(get_db)):
 @app.post("/api/order", response_model=OrderResponse)
 def place_order(order_request: OrderRequest, db: Session = Depends(get_db)):
     """Place an order using a preset"""
-    import json
     
     # Get preset
     preset = db.query(Preset).filter(Preset.id == order_request.preset_id).first()
@@ -315,14 +320,12 @@ def place_order(order_request: OrderRequest, db: Session = Depends(get_db)):
             )
     
     # Run automation
-    items_data = json.loads(preset.items_json)
-    # Handle both old format (list of strings) and new format (list of dicts)
-    if items_data and isinstance(items_data[0], str):
-        # Old format: convert to new format
-        items = [{"name": item, "modifiers": []} for item in items_data]
-    else:
-        # New format
-        items = items_data
+    # automation.run_order_automation expects a list of dicts or strings
+    # Our parse_items_json returns a list of ItemWithModifiers objects
+    # Let's convert them to dicts for run_order_automation
+    items_objects = parse_items_json(preset.items_json)
+    items = [{"name": item.name, "modifiers": item.modifiers} for item in items_objects]
+
     result = run_order_automation(user.name, user.phone_number, items, location_name=preset.location_name)
     
     # Record order attempt
