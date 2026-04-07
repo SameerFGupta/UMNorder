@@ -1,4 +1,4 @@
-const API_BASE = "https://hyperangelic-zariyah-nonparentally.ngrok-free.dev";
+const API_BASE = "http://localhost:8000";
 
 // Tab switching
 function showTab(tabName, clickedButton = null) {
@@ -97,8 +97,17 @@ async function loadPresets() {
             itemsDiv.appendChild(itemsStrong);
             
             const ul = document.createElement('ul');
-            if (preset.items && preset.items.length > 0) {
-                preset.items.forEach(item => {
+            let items = preset.items;
+            if (typeof items === 'string') {
+                try {
+                    items = JSON.parse(items);
+                } catch (e) {
+                    items = [];
+                }
+            }
+
+            if (items && items.length > 0) {
+                items.forEach(item => {
                     const li = document.createElement('li');
                     if (typeof item === 'string') {
                         // Old format
