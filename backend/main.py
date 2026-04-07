@@ -1,8 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
-from fastapi.exceptions import RequestValidationError
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from pydantic import BaseModel
@@ -17,10 +16,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
 
 from backend.automation import run_order_automation
+from backend.config import SQLALCHEMY_DATABASE_URL
 import logging
 
 # Database setup
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./umnorder.db")
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
