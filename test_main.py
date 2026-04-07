@@ -4,7 +4,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from backend.main import app, get_db, Base
+from backend.main import app, get_db
+from backend.models import Base
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 

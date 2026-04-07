@@ -4,79 +4,19 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from pydantic import BaseModel
 from typing import List, Optional
 import os
 import traceback
 import json
-from datetime import datetime, timedelta
-from sqlalchemy import create_engine, text, Column, Integer, String, DateTime, Boolean, Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.sql import func
-
-from backend.automation import run_order_automation
-from backend.config import SQLALCHEMY_DATABASE_URL
 import logging
 
-# Database setup
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-
-# SQLAlchemy models
-class User(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    phone_number = Column(String, nullable=False, unique=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class Preset(Base):
-    __tablename__ = "presets"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=False)
-    preset_name = Column(String, nullable=False)
-    items_json = Column(Text, nullable=False)
-    location_name = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class OrderHistory(Base):
-    __tablename__ = "order_history"
-    id = Column(Integer, primary_key=True, index=True)
-    preset_id = Column(Integer, nullable=False)
-    phone_number = Column(String, nullable=False)
-    success = Column(Boolean, nullable=False)
-    message = Column(Text, nullable=False)
-    ordered_at = Column(DateTime(timezone=True), server_default=func.now())
+from backend.automation import run_order_automation
+from backend.models import engine, SessionLocal, Base, User, Preset, OrderHistory, migrate_database
+from backend.schemas import UserCreate, ItemWithModifiers, PresetCreate, PresetResponse, OrderRequest, OrderResponse
+from backend.helpers import parse_items_json, check_user_cooldown, format_items_for_automation
 
 # Setup logging
 logger = logging.getLogger(__name__)
-
-# Create database tables
-Base.metadata.create_all(bind=engine)
-
-# Migrate existing database: Add location_name column if it doesn't exist
-def migrate_database():
-    """Add location_name column to presets table if it doesn't exist"""
-    try:
-        with engine.begin() as conn:  # Use begin() for automatic transaction handling
-            # Check if column exists by querying table info
-            result = conn.execute(text("PRAGMA table_info(presets)"))
-            columns = [row[1] for row in result.fetchall()]
-            
-            if 'location_name' not in columns:
-                logger.info("Migrating database: Adding location_name column to presets table")
-                conn.execute(text("ALTER TABLE presets ADD COLUMN location_name VARCHAR"))
-                logger.info("Database migration completed successfully")
-            else:
-                logger.info("Database already has location_name column")
-    except Exception as e:
-        # It's OK if the table doesn't exist yet - create_all() will create it with the new column
-        logger.info(f"Migration check: {str(e)} (this is OK if table doesn't exist yet)")
 
 # Run migration
 migrate_database()
@@ -127,90 +67,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-
-# Pydantic models for request/response
-class UserCreate(BaseModel):
-    name: str
-    phone_number: str
-
-
-class ItemWithModifiers(BaseModel):
-    name: str
-    modifiers: List[str] = []  # List of modifier names (e.g., ["Bun", "American Cheese"])
-
-
-class PresetCreate(BaseModel):
-    user_id: int
-    preset_name: str
-    items: List[ItemWithModifiers]  # List of items with their modifiers
-    location_name: Optional[str] = None  # Dining hall location name
-
-
-class PresetResponse(BaseModel):
-    id: int
-    user_id: int
-    preset_name: str
-    items: str | List[ItemWithModifiers]
-    location_name: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
-
-class OrderRequest(BaseModel):
-    preset_id: int
-
-
-class OrderResponse(BaseModel):
-    success: bool
-    message: str
-    cooldown_remaining: Optional[int] = None  # seconds remaining
-
-
-# Helper functions
-
-def parse_items_json(items_json: str) -> List[ItemWithModifiers]:
-    """
-    Parse the items_json string from the database into a list of ItemWithModifiers objects.
-    Handles both old format (list of strings) and new format (list of dicts).
-    """
-    if not items_json:
-        return []
-
-    items_list = json.loads(items_json)
-    if not items_list:
-        return []
-
-    # Handle both old format (list of strings) and new format (list of dicts)
-    if isinstance(items_list[0], str):
-        # Old format: convert to new format
-        return [ItemWithModifiers(name=item, modifiers=[]) for item in items_list]
-    else:
-        # New format
-        return [ItemWithModifiers(name=item["name"], modifiers=item.get("modifiers", [])) for item in items_list]
-
-
-def check_user_cooldown(db: Session, phone_number: str) -> Optional[OrderResponse]:
-    """Check if the user is on cooldown, return OrderResponse if so, else None."""
-    last_order = db.query(OrderHistory).filter(
-        OrderHistory.phone_number == phone_number
-    ).order_by(OrderHistory.ordered_at.desc()).first()
-
-    if last_order:
-        time_since_last_order = datetime.utcnow() - last_order.ordered_at
-        if time_since_last_order < timedelta(minutes=30):
-            remaining_seconds = int((timedelta(minutes=30) - time_since_last_order).total_seconds())
-            return OrderResponse(
-                success=False,
-                message=f"Cooldown active. Please wait {remaining_seconds // 60} minutes and {remaining_seconds % 60} seconds.",
-                cooldown_remaining=remaining_seconds
-            )
-    return None
-
-def format_items_for_automation(items_objects: List[ItemWithModifiers]) -> List[dict]:
-    """Convert a list of ItemWithModifiers to a list of dicts for the automation script."""
-    return [{"name": item.name, "modifiers": item.modifiers} for item in items_objects]
 
 
 # API Endpoints
@@ -277,7 +133,7 @@ def get_presets(db: Session = Depends(get_db)):
             "id": p.id,
             "user_id": p.user_id,
             "preset_name": p.preset_name,
-            "items": p.items_json,
+            "items": parse_items_json(p.items_json),
             "location_name": p.location_name
         })
     return result

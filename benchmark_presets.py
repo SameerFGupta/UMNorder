@@ -2,7 +2,8 @@ import time
 import requests
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from backend.main import Base, Preset, get_presets, app
+from backend.main import app
+from backend.models import Base, Preset
 from backend.config import SQLALCHEMY_DATABASE_URL
 import json
 import uvicorn
