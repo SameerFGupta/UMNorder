@@ -34,15 +34,21 @@ def select_modifiers_in_modal(page, item_name, item_modifiers):
     time.sleep(2)
     
     all_selected = True
+
+    # Cache modifier labels and their normalized text outside the loop to avoid
+    # repeated costly IPC round-trips to the browser.
+    modifier_labels = page.locator('#product-modal label.modifier').all()
+    cached_labels = []
+    for label in modifier_labels:
+        cached_labels.append((label, normalize_text(label.inner_text())))
+
     for modifier_name in item_modifiers:
         try:
             modifier_found = False
             norm_mod_name = normalize_text(modifier_name)
-            modifier_labels = page.locator('#product-modal label.modifier').all()
             
-            for label in modifier_labels:
-                label_text = label.inner_text()
-                if norm_mod_name in normalize_text(label_text):
+            for label, norm_label_text in cached_labels:
+                if norm_mod_name in norm_label_text:
                     checkbox = label.locator('input').first
                     label.scroll_into_view_if_needed()
                     time.sleep(0.2)
