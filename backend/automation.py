@@ -79,7 +79,10 @@ def setup_browser(p):
 def navigate_and_select_location(page, location_name):
     """Navigates to the target URL and selects the pickup location."""
     page.goto(TARGET_URL, wait_until="networkidle", timeout=TIMEOUT)
-    time.sleep(3)
+    try:
+        page.wait_for_selector("button#go-to-all-locations-button, button:has-text('All Pickup Locations'), li[id^='location']", state="attached", timeout=10000)
+    except Exception as e:
+        logger.warning(f"Timeout waiting for location elements to appear: {e}")
 
     if page.locator("button#go-to-all-locations-button").count() > 0:
         page.locator("button#go-to-all-locations-button").first.click()
