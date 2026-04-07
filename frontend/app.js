@@ -39,10 +39,22 @@ function showTab(tabName, clickedButton = null) {
     }
 }
 
+// Helper to escape HTML and prevent XSS
+function escapeHTML(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
 // Load and display presets
 async function loadPresets() {
     const presetsList = document.getElementById('presets-list');
-    presetsList.innerHTML = '<div class="loading">Loading presets...</div>';
+    presetsList.textContent = '';
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'loading';
+    loadingDiv.textContent = 'Loading presets...';
+    presetsList.appendChild(loadingDiv);
     
     try {
         const response = await fetch(`${API_BASE}/api/presets`, {
@@ -52,8 +64,12 @@ async function loadPresets() {
         
         const presets = await response.json();
         
+        presetsList.textContent = '';
         if (presets.length === 0) {
-            presetsList.innerHTML = '<div class="loading">No presets yet. Create one to get started!</div>';
+            const noPresetsDiv = document.createElement('div');
+            noPresetsDiv.className = 'loading';
+            noPresetsDiv.textContent = 'No presets yet. Create one to get started!';
+            presetsList.appendChild(noPresetsDiv);
             return;
         }
         
@@ -65,55 +81,100 @@ async function loadPresets() {
         const userMap = {};
         users.forEach(u => userMap[u.id] = u);
         
-        presetsList.innerHTML = presets.map(preset => {
+        presets.forEach(preset => {
             const user = userMap[preset.user_id] || { name: 'Unknown', phone_number: 'N/A' };
+            const card = document.createElement('div');
+            card.className = 'preset-card';
+
+            const h3 = document.createElement('h3');
+            h3.textContent = preset.preset_name;
+            card.appendChild(h3);
+
+            const itemsDiv = document.createElement('div');
+            itemsDiv.className = 'items';
+            const itemsStrong = document.createElement('strong');
+            itemsStrong.textContent = 'Items:';
+            itemsDiv.appendChild(itemsStrong);
             
-            // Handle both old format (list of strings) and new format (list of objects)
-            let itemsList = '';
+            const ul = document.createElement('ul');
             if (preset.items && preset.items.length > 0) {
-                if (typeof preset.items[0] === 'string') {
-                    // Old format
-                    itemsList = preset.items.map(item => `<li>${item}</li>`).join('');
-                } else {
-                    // New format with modifiers
-                    itemsList = preset.items.map(item => {
-                        const modifiersText = item.modifiers && item.modifiers.length > 0 
-                            ? ` <span style="color: #666; font-size: 0.9em;">(${item.modifiers.join(', ')})</span>`
-                            : '';
-                        return `<li>${item.name}${modifiersText}</li>`;
-                    }).join('');
-                }
+                preset.items.forEach(item => {
+                    const li = document.createElement('li');
+                    if (typeof item === 'string') {
+                        // Old format
+                        li.textContent = item;
+                    } else {
+                        // New format with modifiers
+                        li.textContent = item.name;
+                        if (item.modifiers && item.modifiers.length > 0) {
+                            const span = document.createElement('span');
+                            span.style.color = '#666';
+                            span.style.fontSize = '0.9em';
+                            span.textContent = ` (${item.modifiers.join(', ')})`;
+                            li.appendChild(span);
+                        }
+                    }
+                    ul.appendChild(li);
+                });
             }
+            itemsDiv.appendChild(ul);
+            card.appendChild(itemsDiv);
+
+            const userDiv = document.createElement('div');
+            userDiv.style.marginBottom = '10px';
+            userDiv.style.fontSize = '0.9rem';
+            userDiv.style.color = '#666';
+
+            const userStrong = document.createElement('strong');
+            userStrong.textContent = 'User:';
+            userDiv.appendChild(userStrong);
+            userDiv.appendChild(document.createTextNode(` ${user.name} (${user.phone_number})`));
+            userDiv.appendChild(document.createElement('br'));
+
+            const locationStrong = document.createElement('strong');
+            locationStrong.textContent = 'Location:';
+            userDiv.appendChild(locationStrong);
+            if (preset.location_name) {
+                userDiv.appendChild(document.createTextNode(` ${preset.location_name}`));
+            } else {
+                const em = document.createElement('em');
+                em.textContent = ' Any available';
+                userDiv.appendChild(em);
+            }
+            card.appendChild(userDiv);
+
+            const orderBtn = document.createElement('button');
+            orderBtn.className = 'btn btn-order';
+            orderBtn.textContent = 'ORDER NOW';
+            orderBtn.onclick = (e) => placeOrder(preset.id, preset.preset_name, e.target);
+            card.appendChild(orderBtn);
             
-            return `
-                <div class="preset-card">
-                    <h3>${preset.preset_name}</h3>
-                    <div class="items">
-                        <strong>Items:</strong>
-                        <ul>${itemsList}</ul>
-                    </div>
-                    <div style="margin-bottom: 10px; font-size: 0.9rem; color: #666;">
-                        <strong>User:</strong> ${user.name} (${user.phone_number})<br>
-                        ${preset.location_name ? `<strong>Location:</strong> ${preset.location_name}` : '<strong>Location:</strong> <em>Any available</em>'}
-                    </div>
-                    <button class="btn btn-order" onclick="placeOrder(${preset.id}, '${preset.preset_name}', this)">
-                        ORDER NOW
-                    </button>
-                    <button class="btn btn-delete" onclick="deletePreset(${preset.id})">
-                        Delete Preset
-                    </button>
-                </div>
-            `;
-        }).join('');
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn btn-delete';
+            deleteBtn.textContent = 'Delete Preset';
+            deleteBtn.onclick = () => deletePreset(preset.id);
+            card.appendChild(deleteBtn);
+
+            presetsList.appendChild(card);
+        });
     } catch (error) {
-        presetsList.innerHTML = `<div class="loading" style="color: #ff6b6b;">Error loading presets: ${error.message}</div>`;
+        presetsList.textContent = '';
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'loading';
+        errorDiv.style.color = '#ff6b6b';
+        errorDiv.textContent = `Error loading presets: ${error.message}`;
+        presetsList.appendChild(errorDiv);
     }
 }
 
 // Load and display users
 async function loadUsers() {
     const usersList = document.getElementById('users-list');
-    usersList.innerHTML = '<div class="loading">Loading users...</div>';
+    usersList.textContent = '';
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'loading';
+    loadingDiv.textContent = 'Loading users...';
+    usersList.appendChild(loadingDiv);
     
     try {
         const response = await fetch(`${API_BASE}/api/users`, {
@@ -123,21 +184,40 @@ async function loadUsers() {
         
         const users = await response.json();
         
+        usersList.textContent = '';
         if (users.length === 0) {
-            usersList.innerHTML = '<div class="loading">No users yet. Add one to get started!</div>';
+            const noUsersDiv = document.createElement('div');
+            noUsersDiv.className = 'loading';
+            noUsersDiv.textContent = 'No users yet. Add one to get started!';
+            usersList.appendChild(noUsersDiv);
             return;
         }
         
-        usersList.innerHTML = users.map(user => `
-            <div class="user-card">
-                <div>
-                    <strong>${user.name}</strong><br>
-                    <span style="color: #666;">${user.phone_number}</span>
-                </div>
-            </div>
-        `).join('');
+        users.forEach(user => {
+            const card = document.createElement('div');
+            card.className = 'user-card';
+            const innerDiv = document.createElement('div');
+
+            const strong = document.createElement('strong');
+            strong.textContent = user.name;
+            innerDiv.appendChild(strong);
+            innerDiv.appendChild(document.createElement('br'));
+
+            const span = document.createElement('span');
+            span.style.color = '#666';
+            span.textContent = user.phone_number;
+            innerDiv.appendChild(span);
+
+            card.appendChild(innerDiv);
+            usersList.appendChild(card);
+        });
     } catch (error) {
-        usersList.innerHTML = `<div class="loading" style="color: #ff6b6b;">Error loading users: ${error.message}</div>`;
+        usersList.textContent = '';
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'loading';
+        errorDiv.style.color = '#ff6b6b';
+        errorDiv.textContent = `Error loading users: ${error.message}`;
+        usersList.appendChild(errorDiv);
     }
 }
 
@@ -153,8 +233,18 @@ async function loadUsersForDropdown() {
         
         const users = await response.json();
         
-        userSelect.innerHTML = '<option value="">Select a user...</option>' +
-            users.map(user => `<option value="${user.id}">${user.name} (${user.phone_number})</option>`).join('');
+        userSelect.textContent = '';
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select a user...';
+        userSelect.appendChild(defaultOption);
+
+        users.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = `${user.name} (${user.phone_number})`;
+            userSelect.appendChild(option);
+        });
     } catch (error) {
         console.error('Error loading users:', error);
     }
@@ -197,23 +287,69 @@ function addItemRow(itemName = '', modifiers = []) {
     const itemIndex = container.children.length;
     const itemDiv = document.createElement('div');
     itemDiv.className = 'item-row';
-    // Removed the inline style.cssText that was forcing white background
     
-    itemDiv.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <strong>Item ${itemIndex + 1}</strong>
-            <button type="button" class="btn btn-sm" onclick="removeItemRow(this)">Remove</button>
-        </div>
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label>Item Name:</label>
-            <input type="text" class="item-name" placeholder="e.g., Hamburger" value="${itemName}" required>
-        </div>
-        <div class="form-group" style="margin-bottom: 0;">
-            <label>Modifiers (comma-separated):</label>
-            <input type="text" class="item-modifiers" placeholder="e.g., Bun, American Cheese" value="${modifiers.join(', ')}">
-            <small style="display: block; color: #888; margin-top: 8px; font-size: 0.85rem;">Enter modifier names exactly as they appear</small>
-        </div>
-    `;
+    // Header row
+    const headerDiv = document.createElement('div');
+    headerDiv.style.display = 'flex';
+    headerDiv.style.justifyContent = 'space-between';
+    headerDiv.style.alignItems = 'center';
+    headerDiv.style.marginBottom = '15px';
+
+    const strong = document.createElement('strong');
+    strong.textContent = `Item ${itemIndex + 1}`;
+    headerDiv.appendChild(strong);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-sm';
+    removeBtn.textContent = 'Remove';
+    removeBtn.onclick = (e) => removeItemRow(e.target);
+    headerDiv.appendChild(removeBtn);
+    itemDiv.appendChild(headerDiv);
+
+    // Item Name group
+    const nameGroup = document.createElement('div');
+    nameGroup.className = 'form-group';
+    nameGroup.style.marginBottom = '15px';
+
+    const nameLabel = document.createElement('label');
+    nameLabel.textContent = 'Item Name:';
+    nameGroup.appendChild(nameLabel);
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'item-name';
+    nameInput.placeholder = 'e.g., Hamburger';
+    nameInput.value = itemName;
+    nameInput.required = true;
+    nameGroup.appendChild(nameInput);
+    itemDiv.appendChild(nameGroup);
+
+    // Modifiers group
+    const modGroup = document.createElement('div');
+    modGroup.className = 'form-group';
+    modGroup.style.marginBottom = '0';
+
+    const modLabel = document.createElement('label');
+    modLabel.textContent = 'Modifiers (comma-separated):';
+    modGroup.appendChild(modLabel);
+
+    const modInput = document.createElement('input');
+    modInput.type = 'text';
+    modInput.className = 'item-modifiers';
+    modInput.placeholder = 'e.g., Bun, American Cheese';
+    modInput.value = modifiers.join(', ');
+    modGroup.appendChild(modInput);
+
+    const small = document.createElement('small');
+    small.style.display = 'block';
+    small.style.color = '#888';
+    small.style.marginTop = '8px';
+    small.style.fontSize = '0.85rem';
+    small.textContent = 'Enter modifier names exactly as they appear';
+    modGroup.appendChild(small);
+    itemDiv.appendChild(modGroup);
+
     container.appendChild(itemDiv);
 }
 
@@ -281,7 +417,7 @@ document.getElementById('create-preset-form').addEventListener('submit', async (
         
         showStatus('Preset created successfully!', 'success');
         document.getElementById('create-preset-form').reset();
-        document.getElementById('items-container').innerHTML = '';
+        document.getElementById('items-container').textContent = '';
         showTab('presets');
         loadPresets();
     } catch (error) {
@@ -367,10 +503,12 @@ function showStatus(message, type) {
     const messageDiv = document.getElementById('status-message');
     
     messageDiv.className = `status-${type}`;
-    messageDiv.innerHTML = message;
+    messageDiv.textContent = message;
     
     if (type === 'processing') {
-        messageDiv.innerHTML += '<div class="spinner"></div>';
+        const spinner = document.createElement('div');
+        spinner.className = 'spinner';
+        messageDiv.appendChild(spinner);
     }
     
     modal.style.display = 'block';
