@@ -442,7 +442,7 @@ select option {
     background: rgba(255,255,255,0.05);
 }
 
-/* FIX: Remove button styling updated for flex header */
+/* Remove button styling updated for flex header */
 .item-row .btn-sm {
     width: auto;
     height: auto;
