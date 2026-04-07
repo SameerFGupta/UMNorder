@@ -151,7 +151,7 @@ class PresetResponse(BaseModel):
     id: int
     user_id: int
     preset_name: str
-    items: List[ItemWithModifiers]
+    items: str | List[ItemWithModifiers]
     location_name: Optional[str] = None
 
     class Config:
@@ -251,14 +251,13 @@ def get_presets(db: Session = Depends(get_db)):
     presets = db.query(Preset).all()
     result = []
     for p in presets:
-        items_objects = parse_items_json(p.items_json)
-        result.append(PresetResponse(
-            id=p.id,
-            user_id=p.user_id,
-            preset_name=p.preset_name,
-            items=items_objects,
-            location_name=p.location_name
-        ))
+        result.append({
+            "id": p.id,
+            "user_id": p.user_id,
+            "preset_name": p.preset_name,
+            "items": p.items_json,
+            "location_name": p.location_name
+        })
     return result
 
 
