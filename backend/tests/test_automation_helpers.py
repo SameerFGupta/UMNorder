@@ -18,7 +18,7 @@ def test_normalize_text():
 
     # Edge case: Multiple spaces
     assert normalize_text("a  b") == "a b"
-    assert normalize_text("a   b") == "a  b"  # Note: replace("  ", " ") is only called once, so "   " becomes "  "
+    assert normalize_text("a   b") == "a b"
 
     # Edge case: Hyphens
     assert normalize_text("a-b") == "ab"
