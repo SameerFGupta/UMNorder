@@ -191,6 +191,28 @@ def parse_items_json(items_json: str) -> List[ItemWithModifiers]:
         return [ItemWithModifiers(name=item["name"], modifiers=item.get("modifiers", [])) for item in items_list]
 
 
+def check_user_cooldown(db: Session, phone_number: str) -> Optional[OrderResponse]:
+    """Check if the user is on cooldown, return OrderResponse if so, else None."""
+    last_order = db.query(OrderHistory).filter(
+        OrderHistory.phone_number == phone_number
+    ).order_by(OrderHistory.ordered_at.desc()).first()
+
+    if last_order:
+        time_since_last_order = datetime.utcnow() - last_order.ordered_at
+        if time_since_last_order < timedelta(minutes=30):
+            remaining_seconds = int((timedelta(minutes=30) - time_since_last_order).total_seconds())
+            return OrderResponse(
+                success=False,
+                message=f"Cooldown active. Please wait {remaining_seconds // 60} minutes and {remaining_seconds % 60} seconds.",
+                cooldown_remaining=remaining_seconds
+            )
+    return None
+
+def format_items_for_automation(items_objects: List[ItemWithModifiers]) -> List[dict]:
+    """Convert a list of ItemWithModifiers to a list of dicts for the automation script."""
+    return [{"name": item.name, "modifiers": item.modifiers} for item in items_objects]
+
+
 # API Endpoints
 
 @app.get("/", response_class=HTMLResponse)
@@ -304,26 +326,13 @@ def place_order(order_request: OrderRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     
     # Check cooldown
-    last_order = db.query(OrderHistory).filter(
-        OrderHistory.phone_number == user.phone_number
-    ).order_by(OrderHistory.ordered_at.desc()).first()
-    
-    if last_order:
-        time_since_last_order = datetime.utcnow() - last_order.ordered_at
-        if time_since_last_order < timedelta(minutes=30):
-            remaining_seconds = int((timedelta(minutes=30) - time_since_last_order).total_seconds())
-            return OrderResponse(
-                success=False,
-                message=f"Cooldown active. Please wait {remaining_seconds // 60} minutes and {remaining_seconds % 60} seconds.",
-                cooldown_remaining=remaining_seconds
-            )
+    cooldown_response = check_user_cooldown(db, user.phone_number)
+    if cooldown_response:
+        return cooldown_response
     
     # Run automation
-    # automation.run_order_automation expects a list of dicts or strings
-    # Our parse_items_json returns a list of ItemWithModifiers objects
-    # Let's convert them to dicts for run_order_automation
     items_objects = parse_items_json(preset.items_json)
-    items = [{"name": item.name, "modifiers": item.modifiers} for item in items_objects]
+    items = format_items_for_automation(items_objects)
 
     result = run_order_automation(user.name, user.phone_number, items, location_name=preset.location_name)
     
