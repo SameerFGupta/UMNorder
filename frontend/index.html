@@ -151,7 +151,7 @@
 
         <div id="status-modal" class="modal">
             <div class="modal-content glass-panel">
-                <span class="close" onclick="closeModal()"><i class="ph-bold ph-x"></i></span>
+                <span class="close" onclick="closeModal()" aria-label="Close modal" role="button" tabindex="0" onkeypress="if(event.key === 'Enter' || event.key === ' ') closeModal()"><i class="ph-bold ph-x"></i></span>
                 <div id="status-message"></div>
             </div>
         </div>
