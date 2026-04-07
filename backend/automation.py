@@ -24,7 +24,7 @@ def normalize_text(text):
     """We aggressively normalize text by lowercasing and stripping formatting to ensure text-matching is robust against arbitrary UI changes in spacing or casing."""
     if not text:
         return ""
-    return text.lower().strip().replace("  ", " ").replace("-", "")
+    return " ".join(text.lower().replace("-", "").split())
 
 def select_modifiers_in_modal(page, item_name, item_modifiers):
     if not item_modifiers:
