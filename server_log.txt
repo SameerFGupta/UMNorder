@@ -1,0 +1,50 @@
+INFO:     Will watch for changes in these directories: ['/app']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [49056] using WatchFiles
+============================================================
+Starting UMN Order server...
+============================================================
+
+🌐 Access the website at:
+   http://localhost:8000
+   or
+   http://127.0.0.1:8000
+
+Press Ctrl+C to stop the server
+
+============================================================
+INFO:backend.main:Database already has location_name column
+INFO:     Started server process [49176]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:59118 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59118 - "GET /static/styles.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59122 - "GET /static/app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59118 - "GET /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59122 - "GET /api/presets HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59138 - "GET /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59138 - "GET /api/presets HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58736 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58736 - "GET /static/styles.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58738 - "GET /static/app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58736 - "GET /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58738 - "GET /api/presets HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58746 - "GET /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43828 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43828 - "GET /static/styles.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43832 - "GET /static/app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43832 - "GET /api/presets HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43828 - "GET /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43832 - "GET /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32818 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32834 - "GET /static/app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32818 - "GET /static/styles.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32818 - "GET /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32834 - "GET /api/presets HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32838 - "GET /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35584 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35584 - "GET /static/styles.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35598 - "GET /static/app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35584 - "GET /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35598 - "GET /api/presets HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35600 - "GET /api/users HTTP/1.1" 200 OK

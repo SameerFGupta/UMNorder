@@ -297,67 +297,29 @@ function addItemRow(itemName = '', modifiers = []) {
     const itemDiv = document.createElement('div');
     itemDiv.className = 'item-row';
     
-    // Header row
-    const headerDiv = document.createElement('div');
-    headerDiv.style.display = 'flex';
-    headerDiv.style.justifyContent = 'space-between';
-    headerDiv.style.alignItems = 'center';
-    headerDiv.style.marginBottom = '15px';
+    itemDiv.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <strong>Item ${itemIndex + 1}</strong>
+            <button type="button" class="btn btn-sm">Remove</button>
+        </div>
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label>Item Name:</label>
+            <input type="text" class="item-name" placeholder="e.g., Hamburger" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label>Modifiers (comma-separated):</label>
+            <input type="text" class="item-modifiers" placeholder="e.g., Bun, American Cheese">
+            <small style="display: block; color: #888; margin-top: 8px; font-size: 0.85rem;">Enter modifier names exactly as they appear</small>
+        </div>
+    `;
 
-    const strong = document.createElement('strong');
-    strong.textContent = `Item ${itemIndex + 1}`;
-    headerDiv.appendChild(strong);
+    // Set values safely via DOM properties to prevent XSS and quoting errors
+    itemDiv.querySelector('.item-name').value = itemName;
+    itemDiv.querySelector('.item-modifiers').value = modifiers.join(', ');
 
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'btn btn-sm';
-    removeBtn.textContent = 'Remove';
+    // Attach event listener to the "Remove" button
+    const removeBtn = itemDiv.querySelector('button');
     removeBtn.onclick = (e) => removeItemRow(e.target);
-    headerDiv.appendChild(removeBtn);
-    itemDiv.appendChild(headerDiv);
-
-    // Item Name group
-    const nameGroup = document.createElement('div');
-    nameGroup.className = 'form-group';
-    nameGroup.style.marginBottom = '15px';
-
-    const nameLabel = document.createElement('label');
-    nameLabel.textContent = 'Item Name:';
-    nameGroup.appendChild(nameLabel);
-
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.className = 'item-name';
-    nameInput.placeholder = 'e.g., Hamburger';
-    nameInput.value = itemName;
-    nameInput.required = true;
-    nameGroup.appendChild(nameInput);
-    itemDiv.appendChild(nameGroup);
-
-    // Modifiers group
-    const modGroup = document.createElement('div');
-    modGroup.className = 'form-group';
-    modGroup.style.marginBottom = '0';
-
-    const modLabel = document.createElement('label');
-    modLabel.textContent = 'Modifiers (comma-separated):';
-    modGroup.appendChild(modLabel);
-
-    const modInput = document.createElement('input');
-    modInput.type = 'text';
-    modInput.className = 'item-modifiers';
-    modInput.placeholder = 'e.g., Bun, American Cheese';
-    modInput.value = modifiers.join(', ');
-    modGroup.appendChild(modInput);
-
-    const small = document.createElement('small');
-    small.style.display = 'block';
-    small.style.color = '#888';
-    small.style.marginTop = '8px';
-    small.style.fontSize = '0.85rem';
-    small.textContent = 'Enter modifier names exactly as they appear';
-    modGroup.appendChild(small);
-    itemDiv.appendChild(modGroup);
 
     container.appendChild(itemDiv);
 }
