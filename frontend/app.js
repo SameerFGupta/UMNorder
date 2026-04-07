@@ -33,7 +33,25 @@ function showTab(tabName, clickedButton = null) {
     
     // Load data if needed
     if (tabName === 'presets') {
-        loadPresets();
+        const presetsList = document.getElementById('presets-list');
+        presetsList.textContent = '';
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'loading';
+        loadingDiv.textContent = 'Loading presets...';
+        presetsList.appendChild(loadingDiv);
+
+        Promise.all([
+            fetch(`${API_BASE}/api/presets`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(res => {
+                if (!res.ok) throw new Error('Failed to load presets');
+                return res.json();
+            }),
+            fetch(`${API_BASE}/api/users`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(res => res.json())
+        ]).then(([presets, users]) => {
+            loadPresets(presets, users);
+        }).catch(error => {
+            console.error('Error loading data for presets tab:', error);
+            loadPresets(); // Fallback to let loadPresets handle/display the error
+        });
     } else if (tabName === 'users') {
         loadUsers();
     }
@@ -48,7 +66,7 @@ function escapeHTML(str) {
 }
 
 // Load and display presets
-async function loadPresets() {
+async function loadPresets(presetsData = null, usersData = null) {
     const presetsList = document.getElementById('presets-list');
     presetsList.textContent = '';
     const loadingDiv = document.createElement('div');
@@ -57,12 +75,14 @@ async function loadPresets() {
     presetsList.appendChild(loadingDiv);
     
     try {
-        const response = await fetch(`${API_BASE}/api/presets`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
-        if (!response.ok) throw new Error('Failed to load presets');
-        
-        const presets = await response.json();
+        let presets = presetsData;
+        if (!presets) {
+            const response = await fetch(`${API_BASE}/api/presets`, {
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
+            if (!response.ok) throw new Error('Failed to load presets');
+            presets = await response.json();
+        }
         
         presetsList.textContent = '';
         if (presets.length === 0) {
@@ -74,10 +94,13 @@ async function loadPresets() {
         }
         
         // Load users to get names
-        const usersResponse = await fetch(`${API_BASE}/api/users`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
-        const users = await usersResponse.json();
+        let users = usersData;
+        if (!users) {
+            const usersResponse = await fetch(`${API_BASE}/api/users`, {
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
+            users = await usersResponse.json();
+        }
         const userMap = {};
         users.forEach(u => userMap[u.id] = u);
         
@@ -545,7 +568,19 @@ window.onclick = function(event) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    loadPresets();
+    Promise.all([
+        fetch(`${API_BASE}/api/presets`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(res => {
+            if (!res.ok) throw new Error('Failed to load presets');
+            return res.json();
+        }),
+        fetch(`${API_BASE}/api/users`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(res => res.json())
+    ]).then(([presets, users]) => {
+        loadPresets(presets, users);
+    }).catch(error => {
+        console.error("Error fetching initial data:", error);
+        loadPresets(); // Fallback
+    });
+
     loadUsers();
     loadUsersForDropdown();
     // Add one empty item row by default
