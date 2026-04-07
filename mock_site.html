@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mock TapIn2</title>
+</head>
+<body>
+    <h1>Welcome</h1>
+    <div id="content">Loading...</div>
+    <script>
+        setTimeout(() => {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <button id="go-to-all-locations-button">Go to All Locations</button>
+                <ul id="location-list">
+                    <li id="location-1">Location 1</li>
+                </ul>
+                <ul id="items-list">
+                    <li class="item" data-title="Hot Dog">Hot Dog</li>
+                </ul>
+            `;
+        }, 500);
+    </script>
+</body>
+</html>
