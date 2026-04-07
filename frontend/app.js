@@ -97,8 +97,14 @@ async function loadPresets() {
             itemsDiv.appendChild(itemsStrong);
             
             const ul = document.createElement('ul');
-            if (preset.items && preset.items.length > 0) {
-                preset.items.forEach(item => {
+            let items = [];
+            try {
+                items = JSON.parse(preset.items_json || '[]');
+            } catch (e) {
+                console.error('Error parsing items_json:', e);
+            }
+            if (items && items.length > 0) {
+                items.forEach(item => {
                     const li = document.createElement('li');
                     if (typeof item === 'string') {
                         // Old format

@@ -151,7 +151,7 @@ class PresetResponse(BaseModel):
     id: int
     user_id: int
     preset_name: str
-    items: List[ItemWithModifiers]
+    items_json: str
     location_name: Optional[str] = None
 
     class Config:
@@ -234,32 +234,13 @@ def create_preset(preset: PresetCreate, db: Session = Depends(get_db)):
     db.add(db_preset)
     db.commit()
     db.refresh(db_preset)
-    # Parse back to ItemWithModifiers objects
-    items_objects = parse_items_json(db_preset.items_json)
-    return PresetResponse(
-        id=db_preset.id,
-        user_id=db_preset.user_id,
-        preset_name=db_preset.preset_name,
-        items=items_objects,
-        location_name=db_preset.location_name
-    )
+    return db_preset
 
 
 @app.get("/api/presets", response_model=List[PresetResponse])
 def get_presets(db: Session = Depends(get_db)):
     """Get all presets"""
-    presets = db.query(Preset).all()
-    result = []
-    for p in presets:
-        items_objects = parse_items_json(p.items_json)
-        result.append(PresetResponse(
-            id=p.id,
-            user_id=p.user_id,
-            preset_name=p.preset_name,
-            items=items_objects,
-            location_name=p.location_name
-        ))
-    return result
+    return db.query(Preset).all()
 
 
 @app.get("/api/presets/{preset_id}", response_model=PresetResponse)
@@ -268,14 +249,7 @@ def get_preset(preset_id: int, db: Session = Depends(get_db)):
     preset = db.query(Preset).filter(Preset.id == preset_id).first()
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found")
-    items_objects = parse_items_json(preset.items_json)
-    return PresetResponse(
-        id=preset.id,
-        user_id=preset.user_id,
-        preset_name=preset.preset_name,
-        items=items_objects,
-        location_name=preset.location_name
-    )
+    return preset
 
 
 @app.delete("/api/presets/{preset_id}")
