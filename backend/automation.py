@@ -24,7 +24,7 @@ def normalize_text(text):
     """Helper to normalize text for comparison"""
     if not text:
         return ""
-    return text.lower().strip().replace("  ", " ").replace("-", "")
+    return " ".join(text.lower().replace("-", "").split())
 
 def select_modifiers_in_modal(page, item_name, item_modifiers):
     if not item_modifiers:
