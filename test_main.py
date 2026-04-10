@@ -2,9 +2,11 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+import json
 from sqlalchemy.pool import StaticPool
 
 from backend.main import app, get_db, Base
+from backend.helpers import parse_items_json
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
@@ -56,3 +58,33 @@ def test_create_and_get_preset():
     data = response.json()
     assert len(data) >= 1
     assert data[0]["preset_name"] == "Test Preset"
+
+def test_parse_items_json_new_format():
+    items = [
+        {"name": "Hamburger", "modifiers": ["Bun", "Cheese"]},
+        {"name": "Fries", "modifiers": []}
+    ]
+    items_json = json.dumps(items)
+    result = parse_items_json(items_json)
+
+    assert len(result) == 2
+    assert result[0]["name"] == "Hamburger"
+    assert result[0]["modifiers"] == ["Bun", "Cheese"]
+    assert result[1]["name"] == "Fries"
+    assert result[1]["modifiers"] == []
+
+def test_parse_items_json_old_format():
+    items = ["Hamburger", "Fries"]
+    items_json = json.dumps(items)
+    result = parse_items_json(items_json)
+
+    assert len(result) == 2
+    assert result[0]["name"] == "Hamburger"
+    assert result[0]["modifiers"] == []
+    assert result[1]["name"] == "Fries"
+    assert result[1]["modifiers"] == []
+
+def test_parse_items_json_empty():
+    assert parse_items_json("") == []
+    assert parse_items_json("[]") == []
+    assert parse_items_json(None) == []
