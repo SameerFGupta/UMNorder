@@ -4,67 +4,18 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from pydantic import BaseModel
 from typing import List, Optional
 import os
 import traceback
 import json
-from datetime import datetime, timedelta
-from sqlalchemy import create_engine, text, Column, Integer, String, DateTime, Boolean, Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.sql import func
+import logging
 
 from backend.automation import run_order_automation
-from backend.config import SQLALCHEMY_DATABASE_URL
-import logging
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-class User(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    phone_number = Column(String, nullable=False, unique=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+from backend.models import Base, User, Preset, OrderHistory, SessionLocal, engine
+from backend.schemas import UserCreate, ItemWithModifiers, PresetCreate, PresetResponse, OrderRequest, OrderResponse
+from backend.helpers import parse_items_json, check_user_cooldown, format_items_for_automation
 
-class Preset(Base):
-    __tablename__ = "presets"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=False)
-    preset_name = Column(String, nullable=False)
-    items_json = Column(Text, nullable=False)
-    location_name = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-class OrderHistory(Base):
-    __tablename__ = "order_history"
-    id = Column(Integer, primary_key=True, index=True)
-    preset_id = Column(Integer, nullable=False)
-    phone_number = Column(String, nullable=False)
-    success = Column(Boolean, nullable=False)
-    message = Column(Text, nullable=False)
-    ordered_at = Column(DateTime(timezone=True), server_default=func.now())
 logger = logging.getLogger(__name__)
-Base.metadata.create_all(bind=engine)
-
-"""We handle schema migration explicitly here to support seamless updates for existing deployments without requiring external migration tools like Alembic for this simple single-file app."""
-def migrate_database():
-    """Add location_name column to presets table if it doesn't exist"""
-    try:
-        with engine.begin() as conn:
-            result = conn.execute(text("PRAGMA table_info(presets)"))
-            columns = [row[1] for row in result.fetchall()]
-            
-            if 'location_name' not in columns:
-                logger.info("Migrating database: Adding location_name column to presets table")
-                conn.execute(text("ALTER TABLE presets ADD COLUMN location_name VARCHAR"))
-                logger.info("Database migration completed successfully")
-            else:
-                logger.info("Database already has location_name column")
-    except Exception as e:
-        logger.info(f"Migration check: {str(e)} (this is OK if table doesn't exist yet)")
-migrate_database()
 
 app = FastAPI(title="UMN Order Automation")
 
@@ -106,69 +57,6 @@ def get_db():
         yield db
     finally:
         db.close()
-class UserCreate(BaseModel):
-    name: str
-    phone_number: str
-
-class ItemWithModifiers(BaseModel):
-    name: str
-    modifiers: List[str] = []
-
-class PresetCreate(BaseModel):
-    user_id: int
-    preset_name: str
-    items: List[ItemWithModifiers]
-    location_name: Optional[str] = None
-
-class PresetResponse(BaseModel):
-    id: int
-    user_id: int
-    preset_name: str
-    items: str | List[ItemWithModifiers]
-    location_name: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
-class OrderRequest(BaseModel):
-    preset_id: int
-
-class OrderResponse(BaseModel):
-    success: bool
-    message: str
-    cooldown_remaining: Optional[int] = None
-
-def parse_items_json(items_json: str) -> List[ItemWithModifiers]:
-    """We maintain backwards compatibility for the items_json parsing to ensure existing database records aren't broken when deploying the new modifier features."""
-    if not items_json:
-        return []
-
-    items_list = json.loads(items_json)
-    if not items_list:
-        return []
-    if isinstance(items_list[0], str):
-        return [ItemWithModifiers(name=item, modifiers=[]) for item in items_list]
-    else:
-        return [ItemWithModifiers(name=item["name"], modifiers=item.get("modifiers", [])) for item in items_list]
-
-def check_user_cooldown(db: Session, phone_number: str) -> Optional[OrderResponse]:
-    last_order = db.query(OrderHistory).filter(
-        OrderHistory.phone_number == phone_number
-    ).order_by(OrderHistory.ordered_at.desc()).first()
-
-    if last_order:
-        time_since_last_order = datetime.utcnow() - last_order.ordered_at
-        if time_since_last_order < timedelta(minutes=30):
-            remaining_seconds = int((timedelta(minutes=30) - time_since_last_order).total_seconds())
-            return OrderResponse(
-                success=False,
-                message=f"Cooldown active. Please wait {remaining_seconds // 60} minutes and {remaining_seconds % 60} seconds.",
-                cooldown_remaining=remaining_seconds
-            )
-    return None
-
-def format_items_for_automation(items_objects: List[ItemWithModifiers]) -> List[dict]:
-    return [{"name": item.name, "modifiers": item.modifiers} for item in items_objects]
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -218,13 +106,15 @@ def get_presets(db: Session = Depends(get_db)):
     presets = db.query(Preset).all()
     result = []
     for p in presets:
-        result.append({
-            "id": p.id,
-            "user_id": p.user_id,
-            "preset_name": p.preset_name,
-            "items": p.items_json,
-            "location_name": p.location_name
-        })
+        # Since PresetResponse.items expects List[ItemWithModifiers],
+        # we need to parse the JSON string here instead of returning the string.
+        result.append(PresetResponse(
+            id=p.id,
+            user_id=p.user_id,
+            preset_name=p.preset_name,
+            items=parse_items_json(p.items_json),
+            location_name=p.location_name
+        ))
     return result
 
 @app.get("/api/presets/{preset_id}", response_model=PresetResponse)
