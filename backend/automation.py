@@ -21,7 +21,7 @@ USER_AGENT = (
 )
 
 def normalize_text(text):
-    """We aggressively normalize text by lowercasing and stripping formatting to ensure text-matching is robust against arbitrary UI changes in spacing or casing."""
+    """Helper to normalize text for comparison"""
     if not text:
         return ""
     return " ".join(text.lower().replace("-", "").split())
@@ -31,25 +31,21 @@ def select_modifiers_in_modal(page, item_name, item_modifiers):
         return True
     
     logger.info(f"Selecting modifiers for {item_name}: {item_modifiers}")
-    page.wait_for_selector('#product-modal label.modifier', state='visible', timeout=5000)
+    time.sleep(2)
     
     all_selected = True
-
-    """We cache modifier labels and their normalized text outside the loop to avoid repeated costly IPC round-trips to the browser."""
-    modifier_labels = page.locator('#product-modal label.modifier').all()
-    cached_labels = []
-    for label in modifier_labels:
-        cached_labels.append((label, normalize_text(label.inner_text())))
-
     for modifier_name in item_modifiers:
         try:
             modifier_found = False
             norm_mod_name = normalize_text(modifier_name)
+            modifier_labels = page.locator('#product-modal label.modifier').all()
             
-            for label, norm_label_text in cached_labels:
-                if norm_mod_name in norm_label_text:
+            for label in modifier_labels:
+                label_text = label.inner_text()
+                if norm_mod_name in normalize_text(label_text):
                     checkbox = label.locator('input').first
                     label.scroll_into_view_if_needed()
+                    time.sleep(0.2)
                     
                     if checkbox.count() > 0:
                         if not checkbox.is_checked():
@@ -68,10 +64,11 @@ def select_modifiers_in_modal(page, item_name, item_modifiers):
             logger.warning(f"Error processing modifier {modifier_name}: {str(e)}")
             all_selected = False
     
+    time.sleep(1)
     return all_selected
 
 def setup_browser(p):
-    """We explicitly set viewport and user-agent strings to mimic a realistic mobile device, which prevents the target site from serving a desktop layout or blocking the request."""
+    """Sets up the browser and context."""
     browser = p.chromium.launch(headless=HEADLESS_MODE)
     context = browser.new_context(
         viewport={"width": VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
@@ -80,18 +77,16 @@ def setup_browser(p):
     return browser, context.new_page()
 
 def navigate_and_select_location(page, location_name):
+    """Navigates to the target URL and selects the pickup location."""
     page.goto(TARGET_URL, wait_until="networkidle", timeout=TIMEOUT)
-    try:
-        page.wait_for_selector("button#go-to-all-locations-button, button:has-text('All Pickup Locations'), li[id^='location']", state="attached", timeout=10000)
-    except Exception as e:
-        logger.warning(f"Timeout waiting for location elements to appear: {e}")
+    time.sleep(3)
 
     if page.locator("button#go-to-all-locations-button").count() > 0:
         page.locator("button#go-to-all-locations-button").first.click()
-        page.wait_for_load_state('networkidle', timeout=5000)
+        time.sleep(2)
     elif page.locator("button:has-text('All Pickup Locations')").count() > 0:
         page.locator("button:has-text('All Pickup Locations')").first.click()
-        page.wait_for_load_state('networkidle', timeout=5000)
+        time.sleep(2)
 
     location_selected = False
     if location_name:
@@ -107,7 +102,6 @@ def navigate_and_select_location(page, location_name):
             if norm_target in norm_loc or norm_loc in norm_target:
                 logger.info(f"✓ Found location match: '{loc_text_raw.splitlines()[0]}'")
                 loc_item.click()
-                page.wait_for_load_state('networkidle', timeout=5000)
                 location_selected = True
                 break
 
@@ -120,12 +114,13 @@ def navigate_and_select_location(page, location_name):
         if first_loc.count() > 0:
             logger.info(f"Selecting default location: {first_loc.inner_text().splitlines()[0]}")
             first_loc.click()
-            page.wait_for_load_state('networkidle', timeout=5000)
 
     page.wait_for_selector("li.item[data-title]", timeout=15000)
+    time.sleep(2)
     return True, ""
 
 def add_items_to_cart(page, items):
+    """Adds items to the cart."""
     items_added = 0
     all_menu_items = page.locator("li.item[data-title]").all()
 
@@ -147,7 +142,7 @@ def add_items_to_cart(page, items):
         if target_item:
             target_item.scroll_into_view_if_needed()
             target_item.click(force=True)
-            page.wait_for_selector('#product-modal', state='visible', timeout=5000)
+            time.sleep(2)
 
             if page.locator('#product-modal').is_visible():
                 select_modifiers_in_modal(page, item_name, item_modifiers)
@@ -162,20 +157,22 @@ def add_items_to_cart(page, items):
                 page.wait_for_selector('#product-modal', state='hidden', timeout=5000)
                 items_added += 1
                 logger.info(f"✓ Added {item_name}")
+                time.sleep(1)
         else:
             logger.warning(f"❌ Item '{item_name}' not found.")
 
     return items_added > 0
 
 def checkout(page, name, phone_number):
+    """Handles the checkout process."""
     logger.info("Proceeding to checkout...")
     if page.locator("a#cart").count() > 0: page.locator("a#cart").click()
     else: page.locator("[id='cart']").click()
-    page.wait_for_load_state('domcontentloaded')
+    time.sleep(2)
 
     if page.locator("a#continue-link").count() > 0: page.locator("a#continue-link").click()
     else: page.locator("text=Continue").click()
-    page.wait_for_load_state('domcontentloaded')
+    time.sleep(2)
 
     if page.locator("input#name").count() > 0: page.locator("input#name").fill(name)
     if page.locator("input#phone").count() > 0: page.locator("input#phone").fill(phone_number)
@@ -185,7 +182,7 @@ def checkout(page, name, phone_number):
         return False, "Submit button disabled. Check phone number."
 
     submit_btn.click()
-    page.wait_for_url(lambda url: True, wait_until='networkidle', timeout=8000)
+    time.sleep(5)
 
     content = page.content().lower()
     if "thank you" in content or "confirmed" in content:

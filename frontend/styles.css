@@ -442,7 +442,7 @@ select option {
     background: rgba(255,255,255,0.05);
 }
 
-/* Remove button styling updated for flex header */
+/* FIX: Remove button styling updated for flex header */
 .item-row .btn-sm {
     width: auto;
     height: auto;
@@ -500,48 +500,7 @@ select option {
 }
 
 /* Modal */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    align-items: center;
-    justify-content: center;
-}
-
-.modal[style*="display: block"] {
-    display: flex !important;
-}
-
-.close {
-    position: absolute;
-    right: 15px;
-    top: 15px;
-    color: var(--text-muted);
-    font-size: 1.2rem;
-    font-weight: bold;
-    cursor: pointer;
-    transition: color 0.2s ease;
-    z-index: 10;
-}
-
-.close:hover,
-.close:focus-visible {
-    color: var(--text-main);
-    outline: none;
-}
-
 .modal-content {
-    position: relative;
-    max-width: 400px;
-    width: 90%;
-    padding: 30px;
     background: #1a1a1a;
     border: 1px solid var(--border-color);
     color: var(--text-main);
