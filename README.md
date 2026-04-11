@@ -1,6 +1,6 @@
 # UMN Order - Automated Food Ordering System
 
-A web automation wrapper that allows you to save order presets and place orders on [mobile.tapin2.co](https://mobile.tapin2.co/1238) with a single click. This allows you to autonomously order saved food presets in one click at all University of Minnesota dining halls.
+A web automation wrapper that allows you to save order presets and place orders on [mobile.tapin2.co](https://mobile.tapin2.co/1238) with a single click. Enables autonomous orders at all University of Minnesota dining halls.
 
 ## Features
 
