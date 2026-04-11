@@ -307,67 +307,29 @@ document
 function add_item_row(item_name = "", modifiers = []) {
   const container = document.getElementById("items-container");
   const item_index = container.children.length;
+
   const item_div = document.createElement("div");
   item_div.className = "item-row";
 
-  const header_div = document.createElement("div");
-  header_div.style.display = "flex";
-  header_div.style.justifyContent = "space-between";
-  header_div.style.alignItems = "center";
-  header_div.style.marginBottom = "15px";
+  item_div.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <strong>Item ${item_index + 1}</strong>
+      <button type="button" class="btn btn-sm">Remove</button>
+    </div>
+    <div class="form-group" style="margin-bottom: 15px;">
+      <label>Item Name:</label>
+      <input type="text" class="item-name" placeholder="e.g., Hamburger" required>
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <label>Modifiers (comma-separated):</label>
+      <input type="text" class="item-modifiers" placeholder="e.g., Bun, American Cheese">
+      <small style="display: block; color: #888; margin-top: 8px; font-size: 0.85rem;">Enter modifier names exactly as they appear</small>
+    </div>
+  `;
 
-  const strong = document.createElement("strong");
-  strong.textContent = `Item ${item_index + 1}`;
-  header_div.appendChild(strong);
-
-  const remove_btn = document.createElement("button");
-  remove_btn.type = "button";
-  remove_btn.className = "btn btn-sm";
-  remove_btn.textContent = "Remove";
-  remove_btn.onclick = (e) => remove_item_row(e.target);
-  header_div.appendChild(remove_btn);
-  item_div.appendChild(header_div);
-
-  const name_group = document.createElement("div");
-  name_group.className = "form-group";
-  name_group.style.marginBottom = "15px";
-
-  const name_label = document.createElement("label");
-  name_label.textContent = "Item Name:";
-  name_group.appendChild(name_label);
-
-  const name_input = document.createElement("input");
-  name_input.type = "text";
-  name_input.className = "item-name";
-  name_input.placeholder = "e.g., Hamburger";
-  name_input.value = item_name;
-  name_input.required = true;
-  name_group.appendChild(name_input);
-  item_div.appendChild(name_group);
-
-  const mod_group = document.createElement("div");
-  mod_group.className = "form-group";
-  mod_group.style.marginBottom = "0";
-
-  const mod_label = document.createElement("label");
-  mod_label.textContent = "Modifiers (comma-separated):";
-  mod_group.appendChild(mod_label);
-
-  const mod_input = document.createElement("input");
-  mod_input.type = "text";
-  mod_input.className = "item-modifiers";
-  mod_input.placeholder = "e.g., Bun, American Cheese";
-  mod_input.value = modifiers.join(", ");
-  mod_group.appendChild(mod_input);
-
-  const small = document.createElement("small");
-  small.style.display = "block";
-  small.style.color = "#888";
-  small.style.marginTop = "8px";
-  small.style.fontSize = "0.85rem";
-  small.textContent = "Enter modifier names exactly as they appear";
-  mod_group.appendChild(small);
-  item_div.appendChild(mod_group);
+  item_div.querySelector("button").onclick = (e) => remove_item_row(e.target);
+  item_div.querySelector(".item-name").value = item_name;
+  item_div.querySelector(".item-modifiers").value = modifiers.join(", ");
 
   container.appendChild(item_div);
 }
