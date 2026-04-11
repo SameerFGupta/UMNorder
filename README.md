@@ -1,14 +1,14 @@
 # UMN Order - Automated Food Ordering System
 
-A web automation wrapper that allows you to save order presets and place orders on [mobile.tapin2.co](https://mobile.tapin2.co/1238) with a single click.
+A web automation wrapper that allows you to save order presets and place orders on [mobile.tapin2.co](https://mobile.tapin2.co/1238) with a single click. This allows you to autonomously order saved food presets in one click at all University of Minnesota dining halls.
 
 ## Features
 
-- 🍔 **Save Order Presets**: Create reusable presets with your favorite items
-- 👤 **User Management**: Store multiple users with their contact information
-- ⚡ **One-Click Ordering**: Place orders instantly with a single button click
-- ⏱️ **Cooldown Tracking**: Automatically prevents orders within the 30-minute cooldown period
-- 🤖 **Browser Automation**: Uses Playwright to automate the ordering process
+- **Save Order Presets**: Create reusable presets with your favorite items
+- **User Management**: Store multiple users with their contact information
+- **One-Click Ordering**: Place orders instantly with a single button click
+- **Cooldown Tracking**: Automatically prevents orders within the 30-minute cooldown period
+- **Browser Automation**: Uses Playwright to automate the ordering process
 
 ## Architecture
 
@@ -44,8 +44,6 @@ A web automation wrapper that allows you to save order presets and place orders 
    Open your browser and go to:
    - `http://localhost:8000` (recommended)
    - or `http://127.0.0.1:8000`
-   
-   **⚠️ Important:** Do NOT use `http://0.0.0.0:8000` - that won't work in a browser!
 
 5. **Browser visibility (for testing):**
    By default, the browser will pop up when placing orders (headless=False) so you can see what's happening.
@@ -189,7 +187,6 @@ This will open a browser and test with sample items. Edit `test_automation.py` t
 - This tool is designed for personal use
 - Do not abuse the ordering system
 - Respect the 30-minute cooldown
-- The automation mimics human behavior but should be used responsibly
 
 ## License
 
