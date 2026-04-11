@@ -30,7 +30,15 @@ function show_tab(tab_name, clicked_button = null) {
 
   /* We dynamically load data on tab switch instead of upfront to minimize initial payload and ensure fresh data. */
   if (tab_name === "presets") {
-    load_presets();
+    Promise.all([
+      fetch(`${API_BASE}/api/presets`, { headers: { "ngrok-skip-browser-warning": "true" } }).then(res => res.json()),
+      fetch(`${API_BASE}/api/users`, { headers: { "ngrok-skip-browser-warning": "true" } }).then(res => res.json())
+    ]).then(([presets, users]) => {
+      load_presets(presets, users);
+    }).catch(err => {
+      console.error("Error fetching data for presets tab:", err);
+      load_presets();
+    });
   } else if (tab_name === "users") {
     load_users();
   }
@@ -44,7 +52,7 @@ function escape_html(str) {
   return div.innerHTML;
 }
 
-async function load_presets() {
+async function load_presets(presetsData = null, usersData = null) {
   const presets_list = document.getElementById("presets-list");
   presets_list.textContent = "";
   const loading_div = document.createElement("div");
@@ -53,12 +61,14 @@ async function load_presets() {
   presets_list.appendChild(loading_div);
 
   try {
-    const response = await fetch(`${API_BASE}/api/presets`, {
-      headers: { "ngrok-skip-browser-warning": "true" },
-    });
-    if (!response.ok) throw new Error("Failed to load presets");
-
-    const presets = await response.json();
+    let presets = presetsData;
+    if (!presets) {
+      const response = await fetch(`${API_BASE}/api/presets`, {
+        headers: { "ngrok-skip-browser-warning": "true" },
+      });
+      if (!response.ok) throw new Error("Failed to load presets");
+      presets = await response.json();
+    }
 
     presets_list.textContent = "";
     if (presets.length === 0) {
@@ -70,10 +80,13 @@ async function load_presets() {
     }
 
     /* We load users upfront to build a map, preventing N+1 network requests when resolving user names for presets. */
-    const users_response = await fetch(`${API_BASE}/api/users`, {
-      headers: { "ngrok-skip-browser-warning": "true" },
-    });
-    const users = await users_response.json();
+    let users = usersData;
+    if (!users) {
+      const users_response = await fetch(`${API_BASE}/api/users`, {
+        headers: { "ngrok-skip-browser-warning": "true" },
+      });
+      users = await users_response.json();
+    }
     const user_map = {};
     users.forEach((u) => (user_map[u.id] = u));
 
@@ -428,7 +441,7 @@ document
       document.getElementById("create-preset-form").reset();
       document.getElementById("items-container").textContent = "";
       show_tab("presets");
-      load_presets();
+      // `show_tab("presets")` will now handle fetching and calling `load_presets` in parallel
     } catch (error) {
       show_status(`Error: ${error.message}`, "error");
     }
@@ -500,7 +513,16 @@ async function delete_preset(preset_id) {
     }
 
     show_status("Preset deleted successfully!", "success");
-    load_presets();
+    // Fetch fresh data explicitly to rebuild preset UI, since show_tab('presets') is not necessarily being called
+    Promise.all([
+      fetch(`${API_BASE}/api/presets`, { headers: { "ngrok-skip-browser-warning": "true" } }).then(res => res.json()),
+      fetch(`${API_BASE}/api/users`, { headers: { "ngrok-skip-browser-warning": "true" } }).then(res => res.json())
+    ]).then(([presets, users]) => {
+      load_presets(presets, users);
+    }).catch(err => {
+      console.error("Error refreshing presets after deletion:", err);
+      load_presets();
+    });
   } catch (error) {
     show_status(`Error: ${error.message}`, "error");
   }
@@ -542,7 +564,16 @@ window.onclick = function (event) {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  load_presets();
+  Promise.all([
+    fetch(`${API_BASE}/api/presets`, { headers: { "ngrok-skip-browser-warning": "true" } }).then(res => res.json()),
+    fetch(`${API_BASE}/api/users`, { headers: { "ngrok-skip-browser-warning": "true" } }).then(res => res.json())
+  ]).then(([presets, users]) => {
+    load_presets(presets, users);
+  }).catch(err => {
+    console.error("Error fetching initial data:", err);
+    load_presets();
+  });
+
   load_users();
   load_users_for_dropdown();
   /* Providing an initial empty row improves UX by guiding the user directly into data entry. */
